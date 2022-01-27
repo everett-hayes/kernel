@@ -69,12 +69,29 @@ void term_setup(struct stivale2_struct* hdr) {
 	term_write = (term_write_t)tag->term_write;
 }
 
+void kprint_c(char c) {
+  term_write(&c, 1);
+}
+
+void kprint_s(const char* str) {
+  int i = 0;
+
+  while (str[i] != '\0') {
+    i++;
+  }
+
+  term_write(str, i);
+}
+
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
 
   // Print a greeting
   term_write("Hello Kernel!\n", 14);
+
+  kprint_c('f');
+  kprint_s("Hello World");
 
 	// We're done, just hang...
 	halt();
