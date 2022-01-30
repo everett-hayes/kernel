@@ -6,6 +6,9 @@
     "*.t": "ignore",
     "stdint.h": "c",
     "stivale2.h": "c",
-    "stddef.h": "c"
+    "stddef.h": "c",
+    "istream": "c",
+    "ostream": "c",
+    "type_traits": "c"
   }
 }
