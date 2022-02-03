@@ -89,6 +89,20 @@ void find_memory(struct stivale2_struct* hdr) {
   }
 }
 
+typedef struct_idt_entry {
+  uint16_t offset_0;
+  uint16_t segment;
+  uint8_t ist : 3;
+  uint8_t zeros : 5;
+  uint8_t type : 4;
+  uint8_t zero : 1;
+  uint8_t dp1 : 3;
+  bool present : 1;
+  
+
+} __attribute__((packed))
+idt_entry_t;
+
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
