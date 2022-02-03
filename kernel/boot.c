@@ -73,7 +73,7 @@ void term_setup(struct stivale2_struct* hdr) {
 	term_write = (term_write_t)tag->term_write;
 }
 
-// Return the number of digits of a number
+// Return the number of digits of a value with respect to a base
 int digit_len(uint64_t num, int base) {
   int i = 0;
 
@@ -124,7 +124,7 @@ void kprint_s(const char* str) {
 
 void kprint_num(uint64_t value, int base) {
 
-  // digit length + 1 for null
+  // + 1 for the null terminator
   char arr[digit_len(value, base) + 1];
   int i = 0;
 
@@ -202,25 +202,23 @@ void kprint_f(const char* format, ...) {
   va_end(ap);
 }
 
-void findMemory(struct stivale2_struct* hdr) {
+void find_memory(struct stivale2_struct* hdr) {
 
-
-  //virtual memory
-  struct stivale2_struct_tag_hhdm* virtual_tag = find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID);
-  uint64_t virtualMemStart = virtual_tag->addr;
-
-  // physical memory
   struct stivale2_struct_tag_memmap* physical_tag = find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID);
+  struct stivale2_struct_tag_hhdm* virtual_tag = find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID);
+  uint64_t virtual_mem_start = virtual_tag->addr;
 
   kprint_f("Usable Memory:\n");
+
   for (int i = 0; i < physical_tag->entries; i++) {
-    // if the memory is usable
-    if (physical_tag->memmap[i].type == 1) {
-      uint64_t start = physical_tag->memmap[i].base;
-      uint64_t end = physical_tag->memmap[i].base + physical_tag->memmap[i].length;
-      uint64_t virtualStart = start + virtualMemStart;
-      uint64_t virtualEnd = end + virtualMemStart;
-      kprint_f("\t0x%x-0x%x mapped at 0x%x-0x%x\n", start, end, virtualStart, virtualEnd);
+    struct stivale2_mmap_entry entry = physical_tag->memmap[i];
+    // Check whether memory is usable
+    if (entry.type == 1) {
+      uint64_t physical_start = entry.base;
+      uint64_t physical_end = entry.base + entry.length;
+      uint64_t virtual_start = physical_start + virtual_mem_start;
+      uint64_t virtual_end = physical_end + virtual_mem_start;
+      kprint_f("\t0x%x-0x%x mapped at 0x%x-0x%x\n", physical_start, physical_end, virtual_start, virtual_end);
     }
   }
 }
@@ -229,14 +227,8 @@ void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
 
-  findMemory(hdr);
+  find_memory(hdr);
   kprint_s("\n");
-  // Test print functions
-  // kprint_c('f');
-  // kprint_s("Hello World");
-  kprint_f("Hello world it is %s. I am %d years old", "Everett", 12);
-  // int test = 10;
-  // kprint_p(&test);
 
 	// We're done, just hang...
 	halt();
