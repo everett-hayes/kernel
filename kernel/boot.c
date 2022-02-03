@@ -1,12 +1,9 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <stdarg.h>
 
 #include "stivale2.h"
 #include "util.h"
-
-#define DECIMAL 10
-#define HEXADECIMAL 16
+#include "kprint.h"
 
 // Reserve space for the stack
 static uint8_t stack[8192];
@@ -59,9 +56,6 @@ void* find_tag(struct stivale2_struct* hdr, uint64_t id) {
 	return NULL;
 }
 
-typedef void (*term_write_t)(const char*, size_t);
-term_write_t term_write = NULL;
-
 void term_setup(struct stivale2_struct* hdr) {
   // Look for a terminal tag
   struct stivale2_struct_tag_terminal* tag = find_tag(hdr, STIVALE2_STRUCT_TAG_TERMINAL_ID);
@@ -70,143 +64,15 @@ void term_setup(struct stivale2_struct* hdr) {
   if (tag == NULL) halt();
 
   // Save the term_write function pointer
-	term_write = (term_write_t)tag->term_write;
-}
-
-// Return the number of digits of a value with respect to a base
-int digit_len(uint64_t num, int base) {
-  int i = 0;
-
-  if (num == 0) {
-    return 1;
-  }
-
-  while (num != 0) {
-    i++;
-    num /= base;
-  }
-
-  return i;
-}
-
-// Return the length of a string
-int strlen(const char* str) {
-  int i = 0;
-
-  while (str[i] != '\0') {
-    i++;
-  }
-
-  return i;
-}
-
-// Reverse a string in-place
-void reverse(char* str, int len) {
-  int low = 0;
-  int high = len - 1;
-
-  while (low < high) {
-    char temp = str[low];
-    str[low++] = str[high];
-    str[high--] = temp;
-  }
-}
-
-// Print a single character to the terminal
-void kprint_c(char c) {
-  term_write(&c, 1);
-}
-
-// Print a string to the terminal
-void kprint_s(const char* str) {
-  term_write(str, strlen(str));
-}
-
-void kprint_num(uint64_t value, int base) {
-
-  // + 1 for the null terminator
-  char arr[digit_len(value, base) + 1];
-  int i = 0;
-
-  if (value == 0) {
-    arr[i++] = '0';
-  }
-
-  while (value != 0)  {
-    int digit = value % base;
-    char ch = (digit > 9) ? digit - 10 + 'a' : digit + '0';
-    arr[i++] = ch; 
-    value /= base;
-  }
-
-  reverse(arr, i);
-  arr[i] = '\0';
-  kprint_s(arr);
-}
-
-// Print an unsigned 64-bit integer value to the terminal in decimal notation
-void kprint_d(uint64_t value) {
-  kprint_num(value, DECIMAL);
-}
-// Print an unsigned 64-bit integer value to the terminal in lowercase hexadecimal notation (no leading zeros or “0x” please!)
-void kprint_x(uint64_t value) {
-  kprint_num(value, HEXADECIMAL);
-}
-
-// Print the value of a pointer to the terminal in lowercase hexadecimal with the prefix “0x”
-void kprint_p(void* ptr) { 
-  kprint_s("0x");
-  kprint_x((uint64_t) ptr);
-}
-
-void kprint_f(const char* format, ...) {
-  const char* pos = format;
-  va_list ap;
-
-  va_start(ap, format);
-
-  while (*pos != '\0') {
-
-    if (*pos == '%') {
-      pos++;
-
-      switch (*pos) {
-        case 'c':
-          kprint_c(va_arg(ap, int));
-          break;
-        case 's':
-          kprint_s(va_arg(ap, const char*));
-          break;
-        case 'd':
-          kprint_d(va_arg(ap, uint64_t));
-          break;
-        case 'x':
-          kprint_x(va_arg(ap, uint64_t));
-          break;
-        case 'p':
-          kprint_p(va_arg(ap, void*));
-          break;
-        case '%':
-          kprint_c('%');
-          break;
-        default:
-          kprint_c('?');
-      }
-    } else {
-      kprint_c(*pos);
-    }
-
-    pos++;
-  }
-
-  va_end(ap);
+  set_term_write((term_write_t)tag->term_write);
 }
 
 void find_memory(struct stivale2_struct* hdr) {
 
   struct stivale2_struct_tag_memmap* physical_tag = find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID);
   struct stivale2_struct_tag_hhdm* virtual_tag = find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID);
-  uint64_t virtual_mem_start = virtual_tag->addr;
+  uint64_t hhdm_start = virtual_tag->addr;
+  //kprint_f("HHDM start: %x\n", hhdm_start);
 
   kprint_f("Usable Memory:\n");
 
@@ -216,8 +82,8 @@ void find_memory(struct stivale2_struct* hdr) {
     if (entry.type == 1) {
       uint64_t physical_start = entry.base;
       uint64_t physical_end = entry.base + entry.length;
-      uint64_t virtual_start = physical_start + virtual_mem_start;
-      uint64_t virtual_end = physical_end + virtual_mem_start;
+      uint64_t virtual_start = physical_start + hhdm_start;
+      uint64_t virtual_end = physical_end + hhdm_start;
       kprint_f("\t0x%x-0x%x mapped at 0x%x-0x%x\n", physical_start, physical_end, virtual_start, virtual_end);
     }
   }
@@ -228,7 +94,7 @@ void _start(struct stivale2_struct* hdr) {
   term_setup(hdr);
 
   find_memory(hdr);
-  kprint_s("\n");
+  kprint_f("\n");
 
 	// We're done, just hang...
 	halt();
