@@ -17,7 +17,7 @@ static struct stivale2_tag unmap_null_hdr_tag = {
 static struct stivale2_header_tag_terminal terminal_hdr_tag = {
 	.tag = {
     .identifier = STIVALE2_HEADER_TAG_TERMINAL_ID,
-    .next = (uintptr_t)&unmap_null_hdr_tag
+    .next = (uint64_t)&unmap_null_hdr_tag
   },
   .flags = 0
 };
@@ -140,12 +140,10 @@ void example_handler_ec(interrupt_context_t* ctx, uint64_t ec) {
   halt();
 }
 
-/**
- * Set an interrupt handler for the given interrupt number.
- *
- * \param index The interrupt number to handle
- * \param fn    A pointer to the interrupt handler function
- * \param type  The type of interrupt handler being installed.
+/** idt_record_t record = {
+    .size = sizeof(idt),
+    .base = idt
+  };ed.
  *              Pass IDT_TYPE_INTERRUPT or IDT_TYPE_TRAP from above.
  */
 void idt_set_handler(uint8_t index, void* fn, uint8_t type) {
@@ -161,10 +159,10 @@ void idt_set_handler(uint8_t index, void* fn, uint8_t type) {
   idt[index].offset_0 = (uint64_t) fn & 0xFFFF;
 
   // offset_1 gets the second 16 bits
-  idt[index].offset_1 = (uint64_t) fn & 0xFFFF0000;
+  idt[index].offset_1 = ((uint64_t) fn & 0xFFFF0000) >> 16;
 
   // offset_2 gets the last 32 bits
-  idt[index].offset_2 = (uint64_t) fn & 0xFFFFFFFF00000000;
+  idt[index].offset_2 = ((uint64_t) fn & 0xFFFFFFFF00000000) >> 32;
 }
 
 // This struct is used to load an IDT once we've set it up
@@ -233,10 +231,15 @@ void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
 
-  kprint_f("%p\n", (uint64_t) example_handler);
-  kprint_f("%p\n", (uint64_t) example_handler & 0x000000000000FFFF);
-  kprint_f("%p\n", (uint64_t) example_handler & 0x00000000FFFF0000);
-  kprint_f("%p\n", (uint64_t) example_handler & 0xFFFFFFFF00000000);
+  idt_setup();
+
+  kprint_f("setup has happened");
+
+  int* p = (int*)0x1;
+  *p = 123;
 
 	halt();
-}
+} idt_record_t record = {
+    .size = sizeof(idt),
+    .base = idt
+  };
