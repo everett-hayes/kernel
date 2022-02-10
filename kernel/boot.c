@@ -127,12 +127,84 @@ void find_memory(struct stivale2_struct* hdr) {
   }
 }
 
+
+#define circ_buffer_len 10
+int circ_buffer[circ_buffer_len];     // N elements circular buffer
+int end = 0;    // write index
+int start = 0;  // read index
+volatile size_t buffer_count = 0; // current capacity
+int leftShiftIsPressed = 0;
+int rightShiftIsPressed = 0;
+
+
+void write(int item) {
+  circ_buffer[end++] = item;
+  buffer_count++;
+  end %= circ_buffer_len;
+}
+
+int read() {
+  int item = circ_buffer[start++];
+  start %= circ_buffer_len;
+  buffer_count--;
+  return item;
+}
+
+int isNumeric(int key) {
+  return (key >= 2 && key <= 11);
+}
+
+int isAlpha(int key) {
+  return (key >= 16 && key <= 25) || (key >= 30 && key <= 38) || (key >= 44 && key <= 50);
+}
+
+int isSpecial(int key) {
+
+}
+
 __attribute__((interrupt))
 void keypress_handler(interrupt_context_t* ctx) {
   uint8_t val = inb(0x60);
-  if (val < 127) kprint_f("%c", kbd_US[val]);
+
+  if (val == 0x2A) {
+    leftShiftIsPressed = 1;
+  } else if (val == 0xAA) {
+    leftShiftIsPressed = 0;
+  }
+
+  if (val == 0x36) {
+    rightShiftIsPressed = 1;
+  } else if (val == 0xB6) {
+    rightShiftIsPressed = 0;
+  }
+
+  if (isNumeric(val) || isAlpha(val)) {
+    write(val);
+  }
+
   outb(PIC1_COMMAND, PIC_EOI);
 }
+
+/**
+ * Read one character from the keyboard buffer. If the keyboard buffer is empty this function will
+ * block until a key is pressed.
+ *
+ * \returns the next character input from the keyboard
+ */
+char kgetc() {
+
+  while (buffer_count == 0) {}
+
+  int key = read();
+  char ch = kbd_US[key];
+
+  if ((leftShiftIsPressed || rightShiftIsPressed) && isAlpha(key)) {
+    ch -= 32;
+  }
+
+  return ch;
+}
+
 
 void pic_setup() {
   pic_init();
@@ -146,7 +218,9 @@ void _start(struct stivale2_struct* hdr) {
   idt_setup();
   pic_setup();
 
-  __asm__("int $3");
+  while (1) {
+  kprint_f("%c", kgetc()); 
+  }
 
 	halt();
 }
