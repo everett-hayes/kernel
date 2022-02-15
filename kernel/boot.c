@@ -159,7 +159,7 @@ int isAlpha(int key) {
 }
 
 int isSpecial(int key) {
-
+  // TODO: this
 }
 
 __attribute__((interrupt))
@@ -212,15 +212,46 @@ void pic_setup() {
   pic_unmask_irq(1);
 }
 
+typedef struct pt_entry {
+  uint8_t present : 1;
+  uint8_t writable : 1;
+  uint8_t kernel : 1;
+  uint16_t unused0 : 9;
+  uint64_t address : 51;
+  uint8_t no_execute : 1;
+} __attribute__((packed)) pt_entry;
+
+void translate(uintptr_t page_table, void* address) {
+  
+}
+
+uintptr_t read_cr3() {
+  uintptr_t value;
+  __asm__("mov %%cr3, %0" : "=r" (value));
+  return value;
+}
+
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
   idt_setup();
   pic_setup();
 
-  while (1) {
-  kprint_f("%c", kgetc()); 
-  }
+  uintptr_t level_4_start = read_cr3();
+
+  // masks the bottom 12 bits
+  // this is the start of the level 4 table
+  level_4_start = level_4_start & 0xFFFFFFFFFFFFF000;
+
+  int temp = 0;
+
+  translate(level_4_start, &temp);
+
+  // find_memory(hdr);
+
+  // while (1) {
+  //   kprint_f("%c", kgetc()); 
+  // }
 
 	halt();
 }
