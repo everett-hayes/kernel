@@ -159,6 +159,7 @@ int isAlpha(int key) {
 }
 
 int isSpecial(int key) {
+  return -1;
   // TODO: this
 }
 
@@ -222,7 +223,34 @@ typedef struct pt_entry {
 } __attribute__((packed)) pt_entry;
 
 void translate(uintptr_t page_table, void* address) {
-  
+
+  uint64_t address_int = (uint64_t) address;
+
+  // break the virtual address into pieces
+  uint16_t offset = address_int & 0x0000000000000FFF;
+  address_int >>= 12;
+
+  uint16_t page_index_1 = address_int & 0x00000000000001FF;
+  address_int >>= 9;
+
+  uint16_t page_index_2 = address_int & 0x00000000000001FF;
+  address_int >>= 9;
+
+  uint16_t page_index_3 = address_int & 0x00000000000001FF;
+  address_int >>= 9;
+
+  uint16_t page_index_4 = address_int & 0x00000000000001FF;
+  address_int >>= 9;
+
+  pt_entry* level_four_entry = (pt_entry*) (page_table + (page_index_4 * 64));
+  kprint_f("%x\n", level_four_entry);
+
+  kprint_f("level 4 entry address: %p\n", level_four_entry->address);
+  kprint_f("level 4 present: %d\n", level_four_entry->present);
+  kprint_f("level 4 writable: %d\n", level_four_entry->writable);
+  kprint_f("level 4 kernel: %d\n", level_four_entry->kernel);
+
+  // pt_entry* level_three_entry = (pt_entry*) level_four_entry->address[level_three_index];
 }
 
 uintptr_t read_cr3() {
@@ -237,17 +265,16 @@ void _start(struct stivale2_struct* hdr) {
   idt_setup();
   pic_setup();
 
-  uintptr_t level_4_start = read_cr3();
+  // find_memory(hdr);
 
   // masks the bottom 12 bits
   // this is the start of the level 4 table
-  level_4_start = level_4_start & 0xFFFFFFFFFFFFF000;
+  uintptr_t level_4_base = read_cr3();
+  level_4_base &= 0xFFFFFFFFFFFFF000;
 
-  int temp = 0;
+  kprint_f("%p\n", level_4_base);
 
-  translate(level_4_start, &temp);
-
-  // find_memory(hdr);
+  translate(level_4_base, _start);
 
   // while (1) {
   //   kprint_f("%c", kgetc()); 
