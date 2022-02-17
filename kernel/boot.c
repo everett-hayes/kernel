@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #include "stivale2.h"
 #include "util.h"
@@ -46,11 +47,16 @@ char kbd_US [128] =
     0,  /* All other keys are undefined */
 };
 
+static struct stivale2_tag unmap_null_hdr_tag = {
+  .identifier = STIVALE2_HEADER_TAG_UNMAP_NULL_ID,
+  .next = 0
+};
+
 // Request a terminal from the bootloader
 static struct stivale2_header_tag_terminal terminal_hdr_tag = {
 	.tag = {
     .identifier = STIVALE2_HEADER_TAG_TERMINAL_ID,
-    .next = 0
+    .next = (uint64_t) &unmap_null_hdr_tag
   },
   .flags = 0
 };
@@ -105,14 +111,17 @@ void term_setup(struct stivale2_struct* hdr) {
   set_term_write((term_write_t)tag->term_write);
 }
 
+intptr_t hhdm_base;
+
 void find_memory(struct stivale2_struct* hdr) {
 
   struct stivale2_struct_tag_memmap* physical_tag = find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID);
   struct stivale2_struct_tag_hhdm* virtual_tag = find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID);
   uint64_t hhdm_start = virtual_tag->addr;
+  hhdm_base = hhdm_start;
   //kprint_f("HHDM start: %x\n", hhdm_start);
 
-  kprint_f("Usable Memory:\n");
+  // kprint_f("Usable Memory:\n");
 
   for (int i = 0; i < physical_tag->entries; i++) {
     struct stivale2_mmap_entry entry = physical_tag->memmap[i];
@@ -216,42 +225,11 @@ void pic_setup() {
 typedef struct pt_entry {
   uint8_t present : 1;
   uint8_t writable : 1;
-  uint8_t kernel : 1;
+  uint8_t user : 1;
   uint16_t unused0 : 9;
   uint64_t address : 51;
   uint8_t no_execute : 1;
 } __attribute__((packed)) pt_entry;
-
-void translate(uintptr_t page_table, void* address) {
-
-  uint64_t address_int = (uint64_t) address;
-
-  // break the virtual address into pieces
-  uint16_t offset = address_int & 0x0000000000000FFF;
-  address_int >>= 12;
-
-  uint16_t page_index_1 = address_int & 0x00000000000001FF;
-  address_int >>= 9;
-
-  uint16_t page_index_2 = address_int & 0x00000000000001FF;
-  address_int >>= 9;
-
-  uint16_t page_index_3 = address_int & 0x00000000000001FF;
-  address_int >>= 9;
-
-  uint16_t page_index_4 = address_int & 0x00000000000001FF;
-  address_int >>= 9;
-
-  pt_entry* level_four_entry = (pt_entry*) (page_table + (page_index_4 * 64));
-  kprint_f("%x\n", level_four_entry);
-
-  kprint_f("level 4 entry address: %p\n", level_four_entry->address);
-  kprint_f("level 4 present: %d\n", level_four_entry->present);
-  kprint_f("level 4 writable: %d\n", level_four_entry->writable);
-  kprint_f("level 4 kernel: %d\n", level_four_entry->kernel);
-
-  // pt_entry* level_three_entry = (pt_entry*) level_four_entry->address[level_three_index];
-}
 
 uintptr_t read_cr3() {
   uintptr_t value;
@@ -259,22 +237,69 @@ uintptr_t read_cr3() {
   return value;
 }
 
+void translate(void* address) {
+
+  kprint_f("Translating %p\n", address);
+
+  // masks the bottom 12 bits
+  // this is the start of the level 4 table
+  uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
+
+  pt_entry* table = (pt_entry*) (root + hhdm_base);
+
+  // break the virtual address into pieces
+  uint64_t address_int = (uint64_t) address;
+
+  uint64_t offset = address_int & 0xFFF;
+  uint16_t indices[] = {
+    (address_int >> 12) & 0x1FF,
+    (address_int >> 21) & 0x1FF,
+    (address_int >> 30) & 0x1FF,
+    (address_int >> 39) & 0x1FF // the fourth (highest) table index
+  };
+
+  bool isFound = true;
+
+  for (int i = 3; i >= 0; i--) {
+    uint16_t index = indices[i];
+    pt_entry* curr_entry = (pt_entry*) (table + index);
+
+    kprint_f("Level %d (index %d of %p)\n", i + 1, indices[i], table);
+
+    if (curr_entry->present) {
+      kprint_f("\t%s %s %s\n", 
+        (curr_entry->user) ? "user" : "kernel", 
+        (curr_entry->writable) ? "writable" : "non-writable",
+        (curr_entry->no_execute) ? "non-executable" : "executable");
+    } else {
+      kprint_f("\tIs not present");
+      isFound = false;
+      break;
+    }
+
+    if (i != 0) {
+      table = (pt_entry*) (curr_entry->address << 12);
+    }
+  }
+
+  if (isFound) {
+    uintptr_t result = (uintptr_t) table + offset;
+    kprint_f("%p maps to %p\n", address, result);
+  }
+}
+
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
   idt_setup();
   pic_setup();
+  find_memory(hdr);
 
-  // find_memory(hdr);
+  translate(_start);
 
-  // masks the bottom 12 bits
-  // this is the start of the level 4 table
-  uintptr_t level_4_base = read_cr3();
-  level_4_base &= 0xFFFFFFFFFFFFF000;
+  kprint_f("\n\n");
 
-  kprint_f("%p\n", level_4_base);
-
-  translate(level_4_base, _start);
+  translate(NULL);
 
   // while (1) {
   //   kprint_f("%c", kgetc()); 
