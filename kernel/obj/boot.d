@@ -1,4 +1,5 @@
-obj/boot.o: boot.c stivale2.h util.h kprint.h pic.h port.h exception.h
+obj/boot.o: boot.c stivale2.h util.h kprint.h pic.h port.h exception.h \
+  keyboard.h
 
 stivale2.h:
 
@@ -11,3 +12,5 @@ pic.h:
 port.h:
 
 exception.h:
+
+keyboard.h:

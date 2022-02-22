@@ -8,44 +8,10 @@
 #include "pic.h"
 #include "port.h"
 #include "exception.h"
+#include "keyboard.h"
 
 // Reserve space for the stack
 static uint8_t stack[8192];
-
-char kbd_US [128] =
-{
-    0,  27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',   
-  '\t', /* <-- Tab */
-  'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',     
-    0, /* <-- control key */
-  'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',  0, '\\', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/',   0,
-  '*',
-    0,  /* Alt */
-  ' ',  /* Space bar */
-    0,  /* Caps lock */
-    0,  /* 59 - F1 key ... > */
-    0,   0,   0,   0,   0,   0,   0,   0,
-    0,  /* < ... F10 */
-    0,  /* 69 - Num lock*/
-    0,  /* Scroll Lock */
-    0,  /* Home key */
-    0,  /* Up Arrow */
-    0,  /* Page Up */
-  '-',
-    0,  /* Left Arrow */
-    0,
-    0,  /* Right Arrow */
-  '+',
-    0,  /* 79 - End key*/
-    0,  /* Down Arrow */
-    0,  /* Page Down */
-    0,  /* Insert Key */
-    0,  /* Delete Key */
-    0,   0,   0,
-    0,  /* F11 Key */
-    0,  /* F12 Key */
-    0,  /* All other keys are undefined */
-};
 
 static struct stivale2_tag unmap_null_hdr_tag = {
   .identifier = STIVALE2_HEADER_TAG_UNMAP_NULL_ID,
@@ -113,113 +79,81 @@ void term_setup(struct stivale2_struct* hdr) {
 
 intptr_t hhdm_base;
 
-void find_memory(struct stivale2_struct* hdr) {
+#define PAGE_SIZE 0x1000;
 
-  struct stivale2_struct_tag_memmap* physical_tag = find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID);
-  struct stivale2_struct_tag_hhdm* virtual_tag = find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID);
-  uint64_t hhdm_start = virtual_tag->addr;
-  hhdm_base = hhdm_start;
-  //kprint_f("HHDM start: %x\n", hhdm_start);
+typedef struct free_list_node {
+  struct free_list_node* next;
+} free_list_node_t;
 
-  // kprint_f("Usable Memory:\n");
+free_list_node_t* free_list_head = NULL;
 
-  for (int i = 0; i < physical_tag->entries; i++) {
-    struct stivale2_mmap_entry entry = physical_tag->memmap[i];
-    // Check whether memory is usable
-    if (entry.type == 1) {
-      uint64_t physical_start = entry.base;
-      uint64_t physical_end = entry.base + entry.length;
-      uint64_t virtual_start = physical_start + hhdm_start;
-      uint64_t virtual_end = physical_end + hhdm_start;
-      kprint_f("\t0x%x-0x%x mapped at 0x%x-0x%x\n", physical_start, physical_end, virtual_start, virtual_end);
+void initialize_physical_area(uint64_t start, uint64_t end) {
+
+  uint64_t curr = start;
+
+  while (curr < end) {
+    
+    if (free_list_head == NULL) {
+      // make a new node
+      // set to head
+      // insert at area of physical memory
+      free_list_node_t* node = (free_list_node_t*) (curr + hhdm_base);
+      free_list_head = node;
+    } else {
+      // make a new node
+      // attach before head
+      // insert at area of physical memory
+      free_list_node_t* node = (free_list_node_t*) (curr + hhdm_base);
+      node->next = free_list_head;
+      free_list_head = node;
     }
+
+    curr += PAGE_SIZE;
   }
 }
 
+void check_answer() {
 
-#define circ_buffer_len 10
-int circ_buffer[circ_buffer_len];     // N elements circular buffer
-int end = 0;    // write index
-int start = 0;  // read index
-volatile size_t buffer_count = 0; // current capacity
-int leftShiftIsPressed = 0;
-int rightShiftIsPressed = 0;
+  free_list_node_t* curr = free_list_head;
+  int i = 0;
 
-
-void write(int item) {
-  circ_buffer[end++] = item;
-  buffer_count++;
-  end %= circ_buffer_len;
-}
-
-int read() {
-  int item = circ_buffer[start++];
-  start %= circ_buffer_len;
-  buffer_count--;
-  return item;
-}
-
-int isNumeric(int key) {
-  return (key >= 2 && key <= 11);
-}
-
-int isAlpha(int key) {
-  return (key >= 16 && key <= 25) || (key >= 30 && key <= 38) || (key >= 44 && key <= 50);
-}
-
-int isSpecial(int key) {
-  return -1;
-  // TODO: this
-}
-
-__attribute__((interrupt))
-void keypress_handler(interrupt_context_t* ctx) {
-  uint8_t val = inb(0x60);
-
-  if (val == 0x2A) {
-    leftShiftIsPressed = 1;
-  } else if (val == 0xAA) {
-    leftShiftIsPressed = 0;
+  while (curr != NULL) {
+    i++;
+    curr = curr->next;
   }
 
-  if (val == 0x36) {
-    rightShiftIsPressed = 1;
-  } else if (val == 0xB6) {
-    rightShiftIsPressed = 0;
-  }
-
-  if (isNumeric(val) || isAlpha(val)) {
-    write(val);
-  }
-
-  outb(PIC1_COMMAND, PIC_EOI);
+  kprint_f("there are %d nodes available in your free list", i);
 }
 
 /**
- * Read one character from the keyboard buffer. If the keyboard buffer is empty this function will
- * block until a key is pressed.
- *
- * \returns the next character input from the keyboard
+ * Allocate a page of physical memory.
+ * \returns the physical address of the allocated physical memory or 0 on error.
  */
-char kgetc() {
-
-  while (buffer_count == 0) {}
-
-  int key = read();
-  char ch = kbd_US[key];
-
-  if ((leftShiftIsPressed || rightShiftIsPressed) && isAlpha(key)) {
-    ch -= 32;
+uintptr_t pmem_alloc() {
+  if (free_list_head == NULL) {
+    return 0;
   }
 
-  return ch;
+  uintptr_t val = (uintptr_t) free_list_head;
+  free_list_head = free_list_head->next;
+
+  return val;
 }
 
+/**
+ * Free a page of physical memory.
+ * \param p is the physical address of the page to free, which must be page-aligned.
+ */
+void pmem_free(uintptr_t p) {  
 
-void pic_setup() {
-  pic_init();
-  idt_set_handler(IRQ1_INTERRUPT, keypress_handler, IDT_TYPE_INTERRUPT);
-  pic_unmask_irq(1);
+  if (free_list_head == NULL) {
+    free_list_node_t* node = (free_list_node_t*) (p + hhdm_base);
+    free_list_head = node;
+  } else {
+    free_list_node_t* node = (free_list_node_t*) (p + hhdm_base);
+    node->next = free_list_head;
+    free_list_head = node;
+  }
 }
 
 typedef struct pt_entry {
@@ -230,6 +164,108 @@ typedef struct pt_entry {
   uint64_t address : 51;
   uint8_t no_execute : 1;
 } __attribute__((packed)) pt_entry;
+
+/**
+ * Map a single page of memory into a virtual address space.
+ * \param root The physical address of the top-level page table structure
+ * \param address The virtual address to map into the address space, must be page-aligned
+ * \param user Should the page be user-accessible?
+ * \param writable Should the page be writable?
+ * \param executable Should the page be executable?
+ * \returns true if the mapping succeeded, or false if there was an error
+ */
+bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
+
+  bool succeeded = true;
+  pt_entry* table = (pt_entry*) (root + hhdm_base);
+
+  uint64_t offset = address & 0xFFF;
+  uint16_t indices[] = {
+    (address >> 12) & 0x1FF,
+    (address >> 21) & 0x1FF,
+    (address >> 30) & 0x1FF,
+    (address >> 39) & 0x1FF // the fourth (highest) table index
+  };
+
+  pt_entry* curr_entry = NULL;
+
+  // traverse down the virtual address to level 1
+  for (int i = 3; i >= 1; i--) {
+    uint16_t index = indices[i];
+    curr_entry = (pt_entry*) (table + index);
+
+    kprint_f("Level %d (index %d of %p)\n", i + 1, indices[i], table);
+
+    if (curr_entry->present) {
+      kprint_f("\t%s %s %s\n", 
+        (curr_entry->user) ? "user" : "kernel", 
+        (curr_entry->writable) ? "writable" : "non-writable",
+        (curr_entry->no_execute) ? "non-executable" : "executable");
+    } else {
+       // if I don't find a page table make one there
+    }
+  }
+
+  pt_entry* dest = (pt_entry*) (curr_entry->address + offset);
+
+  dest->address = pmem_alloc();
+  dest->present = 1;
+  dest->user = user;
+  dest->writable = writable;
+  dest->no_execute = executable;
+
+  // traverse down the virtual address 
+    // if I find a pt_entry continue
+    // if I don't make a new page table
+
+  // when I reach the bottom, put the head of my free list inside the pt_entry at the page_table head + offset
+  // advance the head of the free list
+
+  // set the bits of the bottom level pt_entry
+
+  /*
+    Starting at the top-level page table structure (which we called the level-4 page table in class) 
+    you will need to traverse down through the levels just as you did in your translate function. 
+    However, this time you need to be prepared for missing entries in the page table. 
+    When you find a missing entry anywhere except the last-level page table you will need to allocate and fill in a new page table.
+  */
+
+ return succeeded;
+}
+
+void find_memory(struct stivale2_struct* hdr) {
+
+  struct stivale2_struct_tag_memmap* physical_tag = find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID);
+  struct stivale2_struct_tag_hhdm* virtual_tag = find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID);
+  uint64_t hhdm_start = virtual_tag->addr;
+  hhdm_base = hhdm_start;
+  kprint_f("HHDM start: %x\n", hhdm_start);
+
+  kprint_f("Usable Memory:\n");
+
+  for (int i = 0; i < physical_tag->entries; i++) {
+
+    struct stivale2_mmap_entry entry = physical_tag->memmap[i];
+
+    // Check whether memory is usable
+    if (entry.type == 1) {
+      uint64_t physical_start = entry.base;
+      uint64_t physical_end = entry.base + entry.length;
+      initialize_physical_area(physical_start, physical_end);
+      uint64_t virtual_start = physical_start + hhdm_start;
+      uint64_t virtual_end = physical_end + hhdm_start;
+      kprint_f("\t0x%x-0x%x mapped at 0x%x-0x%x\n", physical_start, physical_end, virtual_start, virtual_end);
+    }
+  }
+
+  kprint_f("ALL DONE :)\n");
+}
+
+void pic_setup() {
+  pic_init();
+  idt_set_handler(IRQ1_INTERRUPT, keypress_handler, IDT_TYPE_INTERRUPT);
+  pic_unmask_irq(1);
+}
 
 uintptr_t read_cr3() {
   uintptr_t value;
@@ -295,15 +331,7 @@ void _start(struct stivale2_struct* hdr) {
   pic_setup();
   find_memory(hdr);
 
-  translate(_start);
-
-  kprint_f("\n\n");
-
-  translate(NULL);
-
-  // while (1) {
-  //   kprint_f("%c", kgetc()); 
-  // }
+  check_answer();
 
 	halt();
 }
