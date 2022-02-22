@@ -36,5 +36,6 @@ typedef struct interrupt_context {
   uint64_t ss;
 } __attribute__((packed)) interrupt_context_t;
 
+void* memset(void* ptr, int c, size_t n);
 void idt_setup();
 void idt_set_handler(uint8_t index, void* fn, uint8_t type);

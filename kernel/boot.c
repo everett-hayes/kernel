@@ -79,7 +79,7 @@ void term_setup(struct stivale2_struct* hdr) {
 
 intptr_t hhdm_base;
 
-#define PAGE_SIZE 0x1000;
+#define PAGE_SIZE 0x1000
 
 typedef struct free_list_node {
   struct free_list_node* next;
@@ -137,14 +137,20 @@ uintptr_t pmem_alloc() {
   uintptr_t val = (uintptr_t) free_list_head;
   free_list_head = free_list_head->next;
 
-  return val;
+  return val - hhdm_base;
 }
 
 /**
  * Free a page of physical memory.
  * \param p is the physical address of the page to free, which must be page-aligned.
  */
-void pmem_free(uintptr_t p) {  
+void pmem_free(uintptr_t p) {
+
+  if (p == NULL) {
+    return;
+  }
+
+  // round down to multiple of 4096 (0x1000) maybe  
 
   if (free_list_head == NULL) {
     free_list_node_t* node = (free_list_node_t*) (p + hhdm_base);
@@ -197,18 +203,30 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
     kprint_f("Level %d (index %d of %p)\n", i + 1, indices[i], table);
 
     if (curr_entry->present) {
-      kprint_f("\t%s %s %s\n", 
-        (curr_entry->user) ? "user" : "kernel", 
-        (curr_entry->writable) ? "writable" : "non-writable",
-        (curr_entry->no_execute) ? "non-executable" : "executable");
+      // change curr_entry and continue
+      table = (pt_entry*) (curr_entry->address << 12);
     } else {
-       // if I don't find a page table make one there
+      // make a pt_entry on the current level, set to present
+      curr_entry->present = 1;
+      curr_entry->user = 1;
+      curr_entry->writable = 1;
+      curr_entry->no_execute = 0;
+      // make a page table on the below level and initialize it to all not presents
+      // use pmem_alloc for this step! we will need 8 pages! Contiguous?
+      uintptr_t newly_created_table = pmem_alloc();
+
+      memset(newly_created_table, 0, 4096);
+
+      // make our current pt_entry point to this newly created table
+      curr_entry->address = newly_created_table >> 12;
+      curr_entry = (curr_entry->address << 12);
     }
   }
 
-  pt_entry* dest = (pt_entry*) (curr_entry->address + offset);
+  pt_entry* dest = (pt_entry*) ((curr_entry->address << 12) + offset);
+  kprint_f("Level 1 (index %d of %p)\n", indices[0], curr_entry);
 
-  dest->address = pmem_alloc();
+  dest->address = pmem_alloc() >> 12;
   dest->present = 1;
   dest->user = user;
   dest->writable = writable;
@@ -324,6 +342,16 @@ void translate(void* address) {
   }
 }
 
+uint64_t read_cr0() {
+  uintptr_t value;
+  __asm__("mov %%cr0, %0" : "=r" (value));
+  return value;
+}
+
+void write_cr0(uint64_t value) {
+  __asm__("mov %0, %%cr0" : : "r" (value));
+}
+
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
@@ -331,7 +359,20 @@ void _start(struct stivale2_struct* hdr) {
   pic_setup();
   find_memory(hdr);
 
-  check_answer();
+  // Enable write protection
+  uint64_t cr0 = read_cr0();
+  cr0 |= 0x10000;
+  write_cr0(cr0);  
+
+  uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
+  int* p = (int*)0x50004000;
+  bool result = vm_map(root, (uintptr_t)p, false, true, false);
+  if (result) {
+    *p = 123;
+    kprint_f("Stored %d at %p\n", *p, p);
+  } else {
+    kprint_f("vm_map failed with an error\n");
+  }
 
 	halt();
 }
