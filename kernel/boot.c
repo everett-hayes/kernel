@@ -10,6 +10,8 @@
 #include "exception.h"
 #include "keyboard.h"
 
+#define SYS_WRITE 0
+
 // Reserve space for the stack
 static uint8_t stack[8192];
 
@@ -182,7 +184,6 @@ typedef struct pt_entry {
  */
 bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
 
-  bool succeeded = true;
   pt_entry* table = (pt_entry*) (root + hhdm_base);
 
   uint64_t offset = address & 0xFFF;
@@ -211,10 +212,16 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
       curr_entry->user = 1;
       curr_entry->writable = 1;
       curr_entry->no_execute = 0;
+
       // make a page table on the below level and initialize it to all not presents
-      // use pmem_alloc for this step! we will need 8 pages! Contiguous?
       uintptr_t newly_created_table = pmem_alloc();
 
+      // we have no more physical memory left! we must fail the mapping
+      if (newly_created_table == 0) {
+        return false;
+      }
+
+      // set the table to all 0s
       memset(newly_created_table, 0, 4096);
 
       // make our current pt_entry point to this newly created table
@@ -223,32 +230,16 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
     }
   }
 
-  pt_entry* dest = (pt_entry*) ((curr_entry->address << 12) + offset);
+  pt_entry* dest = (pt_entry*) ((curr_entry->address << 12) + indices[0] + offset);
   kprint_f("Level 1 (index %d of %p)\n", indices[0], curr_entry);
-
+  
   dest->address = pmem_alloc() >> 12;
   dest->present = 1;
   dest->user = user;
   dest->writable = writable;
   dest->no_execute = executable;
 
-  // traverse down the virtual address 
-    // if I find a pt_entry continue
-    // if I don't make a new page table
-
-  // when I reach the bottom, put the head of my free list inside the pt_entry at the page_table head + offset
-  // advance the head of the free list
-
-  // set the bits of the bottom level pt_entry
-
-  /*
-    Starting at the top-level page table structure (which we called the level-4 page table in class) 
-    you will need to traverse down through the levels just as you did in your translate function. 
-    However, this time you need to be prepared for missing entries in the page table. 
-    When you find a missing entry anywhere except the last-level page table you will need to allocate and fill in a new page table.
-  */
-
- return succeeded;
+ return true;
 }
 
 void find_memory(struct stivale2_struct* hdr) {
@@ -272,7 +263,7 @@ void find_memory(struct stivale2_struct* hdr) {
       initialize_physical_area(physical_start, physical_end);
       uint64_t virtual_start = physical_start + hhdm_start;
       uint64_t virtual_end = physical_end + hhdm_start;
-      kprint_f("\t0x%x-0x%x mapped at 0x%x-0x%x\n", physical_start, physical_end, virtual_start, virtual_end);
+      // kprint_f("\t0x%x-0x%x mapped at 0x%x-0x%x\n", physical_start, physical_end, virtual_start, virtual_end);
     }
   }
 
@@ -352,6 +343,40 @@ void write_cr0(uint64_t value) {
   __asm__("mov %0, %%cr0" : : "r" (value));
 }
 
+size_t syscall_read(int fd, void* buf, size_t count) {
+
+  if (fd != 0) {
+    return -1;
+  } 
+
+  for (int i = 0; i < count; i++) {
+    *buf = kgetc();
+    buf += 1; // move address forward 1 byte
+  }
+
+  return count;
+}
+
+size_t syscall_write(int fd, void *buf, size_t count) {
+  if (fd != 1 || fd != 2) {
+    return -1;
+  } 
+
+  return count;
+}
+
+
+// no more arguments than 6!
+uint64_t syscall(uint64_t num, ...);
+void syscall_entry();
+
+int64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
+  kprint_f("Hello world from the syscall!\n");
+  return num;
+}
+
+
+
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
@@ -359,20 +384,24 @@ void _start(struct stivale2_struct* hdr) {
   pic_setup();
   find_memory(hdr);
 
-  // Enable write protection
-  uint64_t cr0 = read_cr0();
-  cr0 |= 0x10000;
-  write_cr0(cr0);  
+  idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
 
-  uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
-  int* p = (int*)0x50004000;
-  bool result = vm_map(root, (uintptr_t)p, false, true, false);
-  if (result) {
-    *p = 123;
-    kprint_f("Stored %d at %p\n", *p, p);
-  } else {
-    kprint_f("vm_map failed with an error\n");
-  }
+  syscall(SYS_WRITE, 1, "Hello", 5);
+
+  // // Enable write protection
+  // uint64_t cr0 = read_cr0();
+  // cr0 |= 0x10000;
+  // write_cr0(cr0);  
+
+  // uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
+  // int* p = (int*)0x50004000;
+  // bool result = vm_map(root, (uintptr_t)p, false, true, false);
+  // if (result) {
+  //   *p = 123;
+  //   kprint_f("Stored %d at %p\n", *p, p);
+  // } else {
+  //   kprint_f("vm_map failed with an error\n");
+  // }
 
 	halt();
 }
