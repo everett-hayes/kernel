@@ -347,20 +347,26 @@ size_t syscall_read(int fd, void* buf, size_t count) {
 
   if (fd != 0) {
     return -1;
-  } 
+  }
+
+  char* char_buf = (char*) buf; 
 
   for (int i = 0; i < count; i++) {
-    *buf = kgetc();
-    buf += 1; // move address forward 1 byte
+    char val = kgetc(); // need to check if this is a backspace
+    char_buf = val;
+    char_buf += 1; // move address forward 1 byte
   }
 
   return count;
 }
 
 size_t syscall_write(int fd, void *buf, size_t count) {
+
   if (fd != 1 || fd != 2) {
     return -1;
-  } 
+  }
+
+  // pop off the buffer and print it 
 
   return count;
 }
@@ -374,8 +380,6 @@ int64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t arg
   kprint_f("Hello world from the syscall!\n");
   return num;
 }
-
-
 
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
