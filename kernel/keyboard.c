@@ -72,8 +72,7 @@ int isAlpha(int key) {
 }
 
 int isSpecial(int key) {
-  return -1;
-  // TODO: this
+  return (key == 57 || key == 14);
 }
 
 __attribute__((interrupt))
@@ -92,7 +91,7 @@ void keypress_handler(interrupt_context_t* ctx) {
     rightShiftIsPressed = 0;
   }
 
-  if (isNumeric(val) || isAlpha(val)) {
+  if (isNumeric(val) || isAlpha(val) || isSpecial(val)) {
     write(val);
   }
 

@@ -11,6 +11,7 @@
 #include "keyboard.h"
 
 #define SYS_WRITE 0
+#define SYS_READ 1
 
 // Reserve space for the stack
 static uint8_t stack[8192];
@@ -242,6 +243,101 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
  return true;
 }
 
+/**
+ * Unmap a page from a virtual address space
+ * \param root The physical address of the top-level page table structure
+ * \param address The virtual address to unmap from the address space
+ * \returns true if successful, or false if anything goes wrong
+ */
+bool vm_unmap(uintptr_t root, uintptr_t address) {
+
+  pt_entry* table = (pt_entry*) (root + hhdm_base);
+
+  uint64_t offset = address & 0xFFF;
+  uint16_t indices[] = {
+    (address >> 12) & 0x1FF,
+    (address >> 21) & 0x1FF,
+    (address >> 30) & 0x1FF,
+    (address >> 39) & 0x1FF // the fourth (highest) table index
+  };
+
+  pt_entry* curr_entry = NULL;
+
+  // traverse down the virtual address to level 1
+  for (int i = 3; i >= 1; i--) {
+    uint16_t index = indices[i];
+    curr_entry = (pt_entry*) (table + index);
+
+    kprint_f("Level %d (index %d of %p)\n", i + 1, indices[i], table);
+
+    if (curr_entry->present) {
+      // change curr_entry and continue
+      table = (pt_entry*) (curr_entry->address << 12);
+    } else {
+      // It's not present?? must fail
+      return false;
+    }
+  }
+
+  // check if still present, if so pass physical location to free function
+  if (curr_entry->present) {
+    uintptr_t virtual_to_free = curr_entry->address << 12;
+    uintptr_t physical_to_free = virtual_to_free - hhdm_base;
+    pmem_free(physical_to_free);
+    return true;
+  } 
+  return false;
+}
+
+/**
+ * Change the protections for a page in a virtual address space
+ * \param root The physical address of the top-level page table structure
+ * \param address The virtual address to update
+ * \param user Should the page be user-accessible or kernel only?
+ * \param writable Should the page be writable?
+ * \param executable Should the page be executable?
+ * \returns true if successful, or false if anything goes wrong (e.g. page is not mapped)
+ */
+bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
+  pt_entry* table = (pt_entry*) (root + hhdm_base);
+
+  uint64_t offset = address & 0xFFF;
+  uint16_t indices[] = {
+    (address >> 12) & 0x1FF,
+    (address >> 21) & 0x1FF,
+    (address >> 30) & 0x1FF,
+    (address >> 39) & 0x1FF // the fourth (highest) table index
+  };
+
+  pt_entry* curr_entry = NULL;
+
+  // traverse down the virtual address to level 1
+  for (int i = 3; i >= 1; i--) {
+    uint16_t index = indices[i];
+    curr_entry = (pt_entry*) (table + index);
+
+    kprint_f("Level %d (index %d of %p)\n", i + 1, indices[i], table);
+
+    if (curr_entry->present) {
+      // change curr_entry and continue
+      table = (pt_entry*) (curr_entry->address << 12);
+    } else {
+      // It's not present?? must fail
+      return false;
+    }
+  }
+
+  // check if still present, if so pass physical location to free function
+  if (curr_entry->present) {
+    curr_entry->user = user;
+    curr_entry->writable = writable;
+    curr_entry->no_execute = !executable;
+    return true;
+  } 
+
+  return false;
+}
+
 void find_memory(struct stivale2_struct* hdr) {
 
   struct stivale2_struct_tag_memmap* physical_tag = find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID);
@@ -362,11 +458,18 @@ size_t syscall_read(int fd, void* buf, size_t count) {
 
 size_t syscall_write(int fd, void *buf, size_t count) {
 
-  if (fd != 1 || fd != 2) {
+  if (fd != 1 && fd != 2) {
     return -1;
   }
 
+  char* char_buf = (char*) buf; 
+
   // pop off the buffer and print it 
+  for (int i = 0; i < count; i++) {
+    char val = *char_buf;
+    kprint_f("%c", val);
+    char_buf += 1; // move address 1 byte backwards
+  }
 
   return count;
 }
@@ -378,7 +481,28 @@ void syscall_entry();
 
 int64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
   kprint_f("Hello world from the syscall!\n");
+
+  switch (num) {
+    case 0:
+      syscall_write(arg0, arg1, arg2);
+      break;
+    case 1:
+      syscall_read(arg0, arg1, arg2);
+      break;
+    default:
+      kprint_f("you've done something very wrong\n");
+  }
   return num;
+}
+
+void locate_module(struct stivale2_struct* hdr) {
+  struct stivale2_struct_tag_modules* tag = find_tag(hdr, STIVALE2_STRUCT_TAG_MODULES_ID);
+
+  for (int i = 0; i < tag->module_count; i++) {
+    struct stivale2_module* temp = &(tag->modules[i]);
+    kprint_f("%s\n", temp->string);
+    kprint_f("\t%p\t%p\n", temp->begin, temp->end);
+  }
 }
 
 void _start(struct stivale2_struct* hdr) {
@@ -388,9 +512,11 @@ void _start(struct stivale2_struct* hdr) {
   pic_setup();
   find_memory(hdr);
 
-  idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
+  locate_module(hdr);
 
-  syscall(SYS_WRITE, 1, "Hello", 5);
+  // idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
+
+  // syscall(SYS_WRITE, 1, "Hello", 5);
 
   // // Enable write protection
   // uint64_t cr0 = read_cr0();
