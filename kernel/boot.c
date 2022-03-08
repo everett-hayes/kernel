@@ -9,6 +9,7 @@
 #include "port.h"
 #include "exception.h"
 #include "keyboard.h"
+#include "elf.h"
 
 #define SYS_WRITE 0
 #define SYS_READ 1
@@ -238,7 +239,7 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
   dest->present = 1;
   dest->user = user;
   dest->writable = writable;
-  dest->no_execute = executable;
+  dest->no_execute = !executable;
 
  return true;
 }
@@ -449,8 +450,16 @@ size_t syscall_read(int fd, void* buf, size_t count) {
 
   for (int i = 0; i < count; i++) {
     char val = kgetc(); // need to check if this is a backspace
-    char_buf = val;
-    char_buf += 1; // move address forward 1 byte
+
+    // MAKE SURE WE DON"T BACKSPACE TOO MUCH !!!!! TODO
+    if (val == '\b') {
+      *char_buf = '\0';
+      char_buf -= 1; // move address backward 1 byte
+      i -= 2; // don't count the backspace or the eaten char
+    } else {
+      *char_buf = val;
+      char_buf += 1; // move address forward 1 byte
+    } 
   }
 
   return count;
@@ -505,6 +514,13 @@ void locate_module(struct stivale2_struct* hdr) {
   }
 }
 
+void exec(uintptr_t elf_address) {
+
+  elf64_hdr_t* header = (elf64_hdr_t*) elf_address;
+
+  // elf64_sec_hdr* sec_header = (elf64_sec_hdr*) (elf_address + header->e_phoff);
+}
+
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
@@ -514,9 +530,14 @@ void _start(struct stivale2_struct* hdr) {
 
   locate_module(hdr);
 
-  // idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
+  idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
 
-  // syscall(SYS_WRITE, 1, "Hello", 5);
+  char buffff [4];
+  buffff[3] = '\0';
+
+  syscall(SYS_READ, 0, buffff, 3);
+
+  kprint_f("%s\n", buffff);
 
   // // Enable write protection
   // uint64_t cr0 = read_cr0();
