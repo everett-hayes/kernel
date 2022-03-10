@@ -85,6 +85,7 @@ intptr_t hhdm_base;
 
 #define PAGE_SIZE 0x1000
 
+// Define the structure of a node within the freelist
 typedef struct free_list_node {
   struct free_list_node* next;
 } free_list_node_t;
@@ -98,15 +99,9 @@ void initialize_physical_area(uint64_t start, uint64_t end) {
   while (curr < end) {
     
     if (free_list_head == NULL) {
-      // make a new node
-      // set to head
-      // insert at area of physical memory
       free_list_node_t* node = (free_list_node_t*) (curr + hhdm_base);
       free_list_head = node;
     } else {
-      // make a new node
-      // attach before head
-      // insert at area of physical memory
       free_list_node_t* node = (free_list_node_t*) (curr + hhdm_base);
       node->next = free_list_head;
       free_list_head = node;
@@ -114,19 +109,6 @@ void initialize_physical_area(uint64_t start, uint64_t end) {
 
     curr += PAGE_SIZE;
   }
-}
-
-void check_answer() {
-
-  free_list_node_t* curr = free_list_head;
-  int i = 0;
-
-  while (curr != NULL) {
-    i++;
-    curr = curr->next;
-  }
-
-  kprint_f("there are %d nodes available in your free list", i);
 }
 
 /**
@@ -153,8 +135,6 @@ void pmem_free(uintptr_t p) {
   if (p == NULL) {
     return;
   }
-
-  // round down to multiple of 4096 (0x1000) maybe  
 
   if (free_list_head == NULL) {
     free_list_node_t* node = (free_list_node_t*) (p + hhdm_base);
@@ -193,40 +173,40 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
     (address >> 12) & 0x1FF,
     (address >> 21) & 0x1FF,
     (address >> 30) & 0x1FF,
-    (address >> 39) & 0x1FF // the fourth (highest) table index
+    (address >> 39) & 0x1FF // The fourth (highest) table index
   };
 
   pt_entry* curr_entry = NULL;
 
-  // traverse down the virtual address to level 1
+  // Traverse down the virtual address to level 1
   for (int i = 3; i >= 1; i--) {
     uint16_t index = indices[i];
     curr_entry = (pt_entry*) (table + index);
 
-    kprint_f("Level %d (index %d of %p)\n", i + 1, indices[i], table);
+    // kprint_f("Level %d (index %d of %p)\n", i + 1, indices[i], table);
 
     if (curr_entry->present) {
-      // change curr_entry and continue
+      // Change curr_entry and continue
       table = (pt_entry*) (curr_entry->address << 12);
     } else {
-      // make a pt_entry on the current level, set to present
+      // Make a pt_entry on the current level, set to present
       curr_entry->present = 1;
       curr_entry->user = 1;
       curr_entry->writable = 1;
       curr_entry->no_execute = 0;
 
-      // make a page table on the below level and initialize it to all not presents
+      // Make a page table on the below level and initialize it to all not presents
       uintptr_t newly_created_table = pmem_alloc();
 
-      // we have no more physical memory left! we must fail the mapping
+      // We have no more physical memory left! we must fail the mapping
       if (newly_created_table == 0) {
         return false;
       }
 
-      // set the table to all 0s
+      // Set the table to all 0s
       memset(newly_created_table, 0, 4096);
 
-      // make our current pt_entry point to this newly created table
+      // Make our current pt_entry point to this newly created table
       curr_entry->address = newly_created_table >> 12;
       curr_entry = (curr_entry->address << 12);
     }
@@ -259,12 +239,11 @@ bool vm_unmap(uintptr_t root, uintptr_t address) {
     (address >> 12) & 0x1FF,
     (address >> 21) & 0x1FF,
     (address >> 30) & 0x1FF,
-    (address >> 39) & 0x1FF // the fourth (highest) table index
+    (address >> 39) & 0x1FF
   };
 
   pt_entry* curr_entry = NULL;
 
-  // traverse down the virtual address to level 1
   for (int i = 3; i >= 1; i--) {
     uint16_t index = indices[i];
     curr_entry = (pt_entry*) (table + index);
@@ -272,15 +251,12 @@ bool vm_unmap(uintptr_t root, uintptr_t address) {
     kprint_f("Level %d (index %d of %p)\n", i + 1, indices[i], table);
 
     if (curr_entry->present) {
-      // change curr_entry and continue
       table = (pt_entry*) (curr_entry->address << 12);
     } else {
-      // It's not present?? must fail
       return false;
     }
   }
 
-  // check if still present, if so pass physical location to free function
   if (curr_entry->present) {
     uintptr_t virtual_to_free = curr_entry->address << 12;
     uintptr_t physical_to_free = virtual_to_free - hhdm_base;
@@ -307,12 +283,11 @@ bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, boo
     (address >> 12) & 0x1FF,
     (address >> 21) & 0x1FF,
     (address >> 30) & 0x1FF,
-    (address >> 39) & 0x1FF // the fourth (highest) table index
+    (address >> 39) & 0x1FF
   };
 
   pt_entry* curr_entry = NULL;
 
-  // traverse down the virtual address to level 1
   for (int i = 3; i >= 1; i--) {
     uint16_t index = indices[i];
     curr_entry = (pt_entry*) (table + index);
@@ -320,15 +295,12 @@ bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, boo
     kprint_f("Level %d (index %d of %p)\n", i + 1, indices[i], table);
 
     if (curr_entry->present) {
-      // change curr_entry and continue
       table = (pt_entry*) (curr_entry->address << 12);
     } else {
-      // It's not present?? must fail
       return false;
     }
   }
 
-  // check if still present, if so pass physical location to free function
   if (curr_entry->present) {
     curr_entry->user = user;
     curr_entry->writable = writable;
@@ -353,7 +325,6 @@ void find_memory(struct stivale2_struct* hdr) {
 
     struct stivale2_mmap_entry entry = physical_tag->memmap[i];
 
-    // Check whether memory is usable
     if (entry.type == 1) {
       uint64_t physical_start = entry.base;
       uint64_t physical_end = entry.base + entry.length;
@@ -363,8 +334,6 @@ void find_memory(struct stivale2_struct* hdr) {
       // kprint_f("\t0x%x-0x%x mapped at 0x%x-0x%x\n", physical_start, physical_end, virtual_start, virtual_end);
     }
   }
-
-  kprint_f("ALL DONE :)\n");
 }
 
 void pic_setup() {
@@ -383,13 +352,13 @@ void translate(void* address) {
 
   kprint_f("Translating %p\n", address);
 
-  // masks the bottom 12 bits
-  // this is the start of the level 4 table
+  // Mask the bottom 12 bits
+  // This is the start of the level 4 table
   uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
 
   pt_entry* table = (pt_entry*) (root + hhdm_base);
 
-  // break the virtual address into pieces
+  // Break the virtual address into pieces
   uint64_t address_int = (uint64_t) address;
 
   uint64_t offset = address_int & 0xFFF;
@@ -397,7 +366,7 @@ void translate(void* address) {
     (address_int >> 12) & 0x1FF,
     (address_int >> 21) & 0x1FF,
     (address_int >> 30) & 0x1FF,
-    (address_int >> 39) & 0x1FF // the fourth (highest) table index
+    (address_int >> 39) & 0x1FF
   };
 
   bool isFound = true;
@@ -440,6 +409,7 @@ void write_cr0(uint64_t value) {
   __asm__("mov %0, %%cr0" : : "r" (value));
 }
 
+// TODO
 size_t syscall_read(int fd, void* buf, size_t count) {
 
   if (fd != 0) {
@@ -473,18 +443,18 @@ size_t syscall_write(int fd, void *buf, size_t count) {
 
   char* char_buf = (char*) buf; 
 
-  // pop off the buffer and print it 
+  // Pop off character from the buffer and print it 
   for (int i = 0; i < count; i++) {
     char val = *char_buf;
     kprint_f("%c", val);
-    char_buf += 1; // move address 1 byte backwards
+    char_buf += 1; // Move address 1 byte backwards
   }
 
   return count;
 }
 
 
-// no more arguments than 6!
+// No more arguments than 6!
 uint64_t syscall(uint64_t num, ...);
 void syscall_entry();
 
@@ -517,7 +487,6 @@ void locate_module(struct stivale2_struct* hdr) {
 void exec(uintptr_t elf_address) {
 
   elf64_hdr_t* header = (elf64_hdr_t*) elf_address;
-
   // elf64_sec_hdr* sec_header = (elf64_sec_hdr*) (elf_address + header->e_phoff);
 }
 
@@ -531,28 +500,6 @@ void _start(struct stivale2_struct* hdr) {
   locate_module(hdr);
 
   idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
-
-  char buffff [4];
-  buffff[3] = '\0';
-
-  syscall(SYS_READ, 0, buffff, 3);
-
-  kprint_f("%s\n", buffff);
-
-  // // Enable write protection
-  // uint64_t cr0 = read_cr0();
-  // cr0 |= 0x10000;
-  // write_cr0(cr0);  
-
-  // uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
-  // int* p = (int*)0x50004000;
-  // bool result = vm_map(root, (uintptr_t)p, false, true, false);
-  // if (result) {
-  //   *p = 123;
-  //   kprint_f("Stored %d at %p\n", *p, p);
-  // } else {
-  //   kprint_f("vm_map failed with an error\n");
-  // }
 
 	halt();
 }
