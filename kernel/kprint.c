@@ -1,4 +1,5 @@
 #include "kprint.h"
+#include "string.h"
 
 #include <stdint.h>
 #include <stdarg.h>
@@ -24,17 +25,6 @@ int digit_len(uint64_t num, int base) {
   while (num != 0) {
     i++;
     num /= base;
-  }
-
-  return i;
-}
-
-// Return the length of a string
-int strlen(const char* str) {
-  int i = 0;
-
-  while (str[i] != '\0') {
-    i++;
   }
 
   return i;

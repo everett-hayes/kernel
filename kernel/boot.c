@@ -10,6 +10,8 @@
 #include "exception.h"
 #include "keyboard.h"
 #include "elf.h"
+#include "string.h"
+#include "mem.h"
 
 #define SYS_WRITE 0
 #define SYS_READ 1
@@ -182,7 +184,6 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
   for (int i = 3; i >= 1; i--) {
     uint16_t index = indices[i];
     curr_entry = (pt_entry*) (table + index);
-
     // kprint_f("Level %d (index %d of %p)\n", i + 1, indices[i], table);
 
     if (curr_entry->present) {
@@ -197,6 +198,7 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
 
       // Make a page table on the below level and initialize it to all not presents
       uintptr_t newly_created_table = pmem_alloc();
+      // kprint_f("newly_created_table is %p\n", newly_created_table);
 
       // We have no more physical memory left! we must fail the mapping
       if (newly_created_table == 0) {
@@ -205,6 +207,7 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
 
       // Set the table to all 0s
       memset(newly_created_table, 0, 4096);
+      // kprint_f("newly_created_table is %p\n", newly_created_table);
 
       // Make our current pt_entry point to this newly created table
       curr_entry->address = newly_created_table >> 12;
@@ -212,8 +215,9 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
     }
   }
 
-  pt_entry* dest = (pt_entry*) ((curr_entry->address << 12) + indices[0] + offset);
-  kprint_f("Level 1 (index %d of %p)\n", indices[0], curr_entry);
+  pt_entry* dest = (pt_entry*) (curr_entry + indices[0]);
+  // kprint_f("the curr_entry->address is %p\n", (curr_entry->address << 12));
+  // kprint_f("Level %d (index %d of %p)\n", 1, indices[0], dest);
   
   dest->address = pmem_alloc() >> 12;
   dest->present = 1;
@@ -474,20 +478,83 @@ int64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t arg
   return num;
 }
 
-void locate_module(struct stivale2_struct* hdr) {
+uint64_t locate_module(struct stivale2_struct* hdr, char* module_name) {
   struct stivale2_struct_tag_modules* tag = find_tag(hdr, STIVALE2_STRUCT_TAG_MODULES_ID);
 
   for (int i = 0; i < tag->module_count; i++) {
     struct stivale2_module* temp = &(tag->modules[i]);
-    kprint_f("%s\n", temp->string);
-    kprint_f("\t%p\t%p\n", temp->begin, temp->end);
+
+    if (strcmp(temp->string, module_name) == 0) {
+      return temp->begin;
+    }
   }
+
+  return -1;
 }
 
 void exec(uintptr_t elf_address) {
 
   elf64_hdr_t* header = (elf64_hdr_t*) elf_address;
-  // elf64_sec_hdr* sec_header = (elf64_sec_hdr*) (elf_address + header->e_phoff);
+
+  elf64_prg_hdr_t* prg_header = (elf64_prg_hdr_t*) (elf_address + header->e_phoff);
+
+  int ph_size = header->e_phentsize;
+  int ph_num = header->e_phnum;
+
+  uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
+  uintptr_t temp = prg_header;
+
+  for (int i = 0; i < ph_num; i++) {
+    elf64_prg_hdr_t* prg_header_curr = (elf64_prg_hdr_t*) (temp);
+
+    if (prg_header_curr->p_type == 1 && prg_header_curr->p_memsz > 0) {
+      kprint_f("trying to map at %p\n", prg_header_curr->p_vaddr);
+      bool res = vm_map(root, prg_header_curr->p_vaddr, 1, 1, 1);
+
+      if (!res) {
+        return;
+      }
+
+      int try = 4;
+      int temp = prg_header_curr->p_flags;
+      bool readable = false;
+      bool writable = false;
+      bool executable = false;
+
+      for (int i = 0; i < 3; i++) {
+
+        if (temp - try >= 0) {
+
+          if (try == 4) {
+            readable = true;
+          } else if (try == 2) {
+            writable = true;
+          } else {  
+            executable = true;
+          }
+
+          temp -= try;
+        }        
+
+        try >>= 1;
+      }
+
+
+      // copy contents of elf file to virtual address
+      // ask charlie about this line!
+      memcpy(prg_header_curr->p_vaddr, elf_address + prg_header_curr->p_offset, prg_header_curr->p_memsz);
+      vm_protect(root, prg_header_curr->p_vaddr, true, writable, executable);
+    }
+
+    // advance pointer by size of program header
+    temp += ph_size;
+  }
+
+  // typedef void (*elf_exec_t)();
+  // elf_exec_t current_exe = (elf_exec_t) (header->e_entry);
+  // current_exe();
+
+  kprint_f("elf mapped in memory!!!\n");
 }
 
 void _start(struct stivale2_struct* hdr) {
@@ -497,9 +564,12 @@ void _start(struct stivale2_struct* hdr) {
   pic_setup();
   find_memory(hdr);
 
-  locate_module(hdr);
+  uint64_t init_start = locate_module(hdr, "init");
 
+  kprint_f("init_start: %x\n", init_start);
   idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
+
+  exec(init_start);
 
 	halt();
 }

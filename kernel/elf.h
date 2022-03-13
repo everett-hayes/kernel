@@ -17,7 +17,7 @@ typedef struct elf64_hdr {
     uint16_t e_shstrndx; /* Section name string table index */
 } __attribute__((packed)) elf64_hdr_t;
 
-typedef struct elf64_sec_hdr {
+typedef struct elf64_prg_hdr {
     uint32_t p_type; /* Type of segment */
     uint32_t p_flags; /* Segment attributes */
     uint64_t p_offset; /* Offset in file */
@@ -26,7 +26,7 @@ typedef struct elf64_sec_hdr {
     uint64_t p_filesz; /* Size of segment in file */
     uint64_t p_memsz; /* Size of segment in memory */
     uint64_t p_align; /* Alignment of segment */
-} __attribute__((packed)) elf64_sec_hdr_t;
+} __attribute__((packed)) elf64_prg_hdr_t;
 
 typedef struct elf64_sec_entry {
     uint32_t sh_name; /* Section name */

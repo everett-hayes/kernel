@@ -4,6 +4,7 @@
 #include "util.h"
 #include "exception.h"
 #include "kprint.h"
+#include "mem.h"
 
 __attribute__((interrupt))
 void interrupt_handler(interrupt_context_t* ctx) {
@@ -43,19 +44,7 @@ typedef struct idt_record {
 } __attribute__((packed)) idt_record_t;
 
    
-// The  memset() function fills the first n bytes of the memory area pointed to by s with the constant byte c.
-void* memset(void* ptr, int c, size_t n) {
-  unsigned char* curr = ptr;
-  int i = 0;
 
-  while (i < n) {
-    *curr = (unsigned char) c;
-    curr++;
-    i++;
-  }
-
-  return ptr;
-}
 
 /**
  * Initialize an interrupt descriptor table, set handlers for standard exceptions, and install
