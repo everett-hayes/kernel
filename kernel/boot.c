@@ -206,16 +206,16 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
       }
 
       // Set the table to all 0s
-      memset(newly_created_table, 0, 4096);
+      memset(newly_created_table + hhdm_base, 0, 4096);
       // kprint_f("newly_created_table is %p\n", newly_created_table);
 
       // Make our current pt_entry point to this newly created table
       curr_entry->address = newly_created_table >> 12;
-      curr_entry = (curr_entry->address << 12);
+      table = (curr_entry->address << 12) + hhdm_base;
     }
   }
 
-  pt_entry* dest = (pt_entry*) (curr_entry + indices[0]);
+  pt_entry* dest = (table + indices[0]);
   // kprint_f("the curr_entry->address is %p\n", (curr_entry->address << 12));
   // kprint_f("Level %d (index %d of %p)\n", 1, indices[0], dest);
   
@@ -550,9 +550,9 @@ void exec(uintptr_t elf_address) {
     temp += ph_size;
   }
 
-  // typedef void (*elf_exec_t)();
-  // elf_exec_t current_exe = (elf_exec_t) (header->e_entry);
-  // current_exe();
+  typedef void (*elf_exec_t)();
+  elf_exec_t current_exe = (elf_exec_t) (header->e_entry);
+  current_exe();
 
   kprint_f("elf mapped in memory!!!\n");
 }
