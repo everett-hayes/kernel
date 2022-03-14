@@ -25,9 +25,6 @@ typedef struct idt_entry {
   uint32_t _unused_2;
 } __attribute__((packed)) idt_entry_t;
 
-// Make an IDT
-idt_entry_t idt[256];
-
 typedef struct interrupt_context {
   uintptr_t ip;
   uint64_t cs;

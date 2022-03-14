@@ -6,6 +6,9 @@
 #include "kprint.h"
 #include "mem.h"
 
+// Make an IDT
+idt_entry_t idt[256];
+
 __attribute__((interrupt))
 void interrupt_handler(interrupt_context_t* ctx) {
   kprint_f("example interrupt handler\n");
@@ -42,9 +45,6 @@ typedef struct idt_record {
   uint16_t size;
   void* base;
 } __attribute__((packed)) idt_record_t;
-
-   
-
 
 /**
  * Initialize an interrupt descriptor table, set handlers for standard exceptions, and install
