@@ -346,19 +346,13 @@ void pic_setup() {
   pic_unmask_irq(1);
 }
 
-uintptr_t read_cr3() {
-  uintptr_t value;
-  __asm__("mov %%cr3, %0" : "=r" (value));
-  return value;
-}
-
 void translate(void* address) {
 
   kprint_f("Translating %p\n", address);
 
   // Mask the bottom 12 bits
   // This is the start of the level 4 table
-  uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
+  uintptr_t root = get_top_table();
 
   pt_entry* table = (pt_entry*) (root + hhdm_base);
 
@@ -501,7 +495,7 @@ void exec(uintptr_t elf_address) {
   int ph_size = header->e_phentsize;
   int ph_num = header->e_phnum;
 
-  uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
+  uintptr_t root = get_top_table();
   uintptr_t temp = prg_header;
 
   for (int i = 0; i < ph_num; i++) {
