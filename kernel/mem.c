@@ -3,8 +3,19 @@
 #include "stivale2.h"
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define PAGE_SIZE 0x1000
+
+// a page table entry
+typedef struct pt_entry {
+  uint8_t present : 1;
+  uint8_t writable : 1;
+  uint8_t user : 1;
+  uint16_t unused0 : 9;
+  uint64_t address : 51;
+  uint8_t no_execute : 1;
+} __attribute__((packed)) pt_entry;
 
 // Define the structure of a node within the freelist
 typedef struct free_list_node {
@@ -122,4 +133,41 @@ void pmem_free(uintptr_t p) {
 // a temp getter function TODO make it so this can be a private variable
 uint64_t get_hhdm_base() {
   return hhdm_base;
+}
+
+uintptr_t translate_virtual_to_physcial(void* address) {
+
+  // Mask the bottom 12 bits
+  uintptr_t root = get_top_table();
+
+  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
+
+  // Break the virtual address into pieces
+  uint64_t address_int = (uint64_t) address;
+
+  uint64_t offset = address_int & 0xFFF;
+  uint16_t indices[] = {
+    (address_int >> 12) & 0x1FF,
+    (address_int >> 21) & 0x1FF,
+    (address_int >> 30) & 0x1FF,
+    (address_int >> 39) & 0x1FF
+  };
+
+  bool isFound = true;
+
+  for (int i = 3; i >= 1; i--) {
+
+    // get the current entry
+    pt_entry* curr_entry = (pt_entry*) (table + indices[i]);
+
+    if (!curr_entry->present) {
+      isFound = false;
+      break;
+    }
+
+    // advance pointer to next level of table
+    table = (pt_entry*) (curr_entry->address << 12);
+  }
+
+  return (isFound) ? (uintptr_t) table + indices[0] + offset : 0;
 }

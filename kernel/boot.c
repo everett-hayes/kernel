@@ -256,57 +256,6 @@ void pic_setup() {
   pic_unmask_irq(1);
 }
 
-void translate(void* address) {
-
-  kprint_f("Translating %p\n", address);
-
-  // Mask the bottom 12 bits
-  // This is the start of the level 4 table
-  uintptr_t root = get_top_table();
-
-  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
-
-  // Break the virtual address into pieces
-  uint64_t address_int = (uint64_t) address;
-
-  uint64_t offset = address_int & 0xFFF;
-  uint16_t indices[] = {
-    (address_int >> 12) & 0x1FF,
-    (address_int >> 21) & 0x1FF,
-    (address_int >> 30) & 0x1FF,
-    (address_int >> 39) & 0x1FF
-  };
-
-  bool isFound = true;
-
-  for (int i = 3; i >= 0; i--) {
-    uint16_t index = indices[i];
-    pt_entry* curr_entry = (pt_entry*) (table + index);
-
-    kprint_f("Level %d (index %d of %p)\n", i + 1, indices[i], table);
-
-    if (curr_entry->present) {
-      kprint_f("\t%s %s %s\n", 
-        (curr_entry->user) ? "user" : "kernel", 
-        (curr_entry->writable) ? "writable" : "non-writable",
-        (curr_entry->no_execute) ? "non-executable" : "executable");
-    } else {
-      kprint_f("\tIs not present");
-      isFound = false;
-      break;
-    }
-
-    if (i != 0) {
-      table = (pt_entry*) (curr_entry->address << 12);
-    }
-  }
-
-  if (isFound) {
-    uintptr_t result = (uintptr_t) table + offset;
-    kprint_f("%p maps to %p\n", address, result);
-  }
-}
-
 uint64_t read_cr0() {
   uintptr_t value;
   __asm__("mov %%cr0, %0" : "=r" (value));
@@ -468,12 +417,14 @@ void _start(struct stivale2_struct* hdr) {
   pic_setup();
   initialize_memory(find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID), find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID));
 
-  uint64_t init_start = locate_module(hdr, "init");
+  kprint_f("%p\n", translate_virtual_to_physcial(_start));
 
-  kprint_f("init_start: %x\n", init_start);
-  idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
+  // uint64_t init_start = locate_module(hdr, "init");
 
-  exec(init_start);
+  // kprint_f("init_start: %x\n", init_start);
+  // idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
+
+  // exec(init_start);
 
 	halt();
 }
