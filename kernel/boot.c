@@ -83,71 +83,6 @@ void term_setup(struct stivale2_struct* hdr) {
   set_term_write((term_write_t)tag->term_write);
 }
 
-intptr_t hhdm_base;
-
-#define PAGE_SIZE 0x1000
-
-// Define the structure of a node within the freelist
-typedef struct free_list_node {
-  struct free_list_node* next;
-} free_list_node_t;
-
-free_list_node_t* free_list_head = NULL;
-
-void initialize_physical_area(uint64_t start, uint64_t end) {
-
-  uint64_t curr = start;
-
-  while (curr < end) {
-    
-    if (free_list_head == NULL) {
-      free_list_node_t* node = (free_list_node_t*) (curr + hhdm_base);
-      free_list_head = node;
-    } else {
-      free_list_node_t* node = (free_list_node_t*) (curr + hhdm_base);
-      node->next = free_list_head;
-      free_list_head = node;
-    }
-
-    curr += PAGE_SIZE;
-  }
-}
-
-/**
- * Allocate a page of physical memory.
- * \returns the physical address of the allocated physical memory or 0 on error.
- */
-uintptr_t pmem_alloc() {
-  if (free_list_head == NULL) {
-    return 0;
-  }
-
-  uintptr_t val = (uintptr_t) free_list_head;
-  free_list_head = free_list_head->next;
-
-  return val - hhdm_base;
-}
-
-/**
- * Free a page of physical memory.
- * \param p is the physical address of the page to free, which must be page-aligned.
- */
-void pmem_free(uintptr_t p) {
-
-  if (p == NULL) {
-    return;
-  }
-
-  if (free_list_head == NULL) {
-    free_list_node_t* node = (free_list_node_t*) (p + hhdm_base);
-    free_list_head = node;
-  } else {
-    free_list_node_t* node = (free_list_node_t*) (p + hhdm_base);
-    node->next = free_list_head;
-    free_list_head = node;
-  }
-}
-
 typedef struct pt_entry {
   uint8_t present : 1;
   uint8_t writable : 1;
@@ -168,7 +103,7 @@ typedef struct pt_entry {
  */
 bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
 
-  pt_entry* table = (pt_entry*) (root + hhdm_base);
+  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
 
   uint64_t offset = address & 0xFFF;
   uint16_t indices[] = {
@@ -206,12 +141,12 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
       }
 
       // Set the table to all 0s
-      memset(newly_created_table + hhdm_base, 0, 4096);
+      memset(newly_created_table + get_hhdm_base(), 0, 4096);
       // kprint_f("newly_created_table is %p\n", newly_created_table);
 
       // Make our current pt_entry point to this newly created table
       curr_entry->address = newly_created_table >> 12;
-      table = (curr_entry->address << 12) + hhdm_base;
+      table = (curr_entry->address << 12) + get_hhdm_base();
     }
   }
 
@@ -236,7 +171,7 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
  */
 bool vm_unmap(uintptr_t root, uintptr_t address) {
 
-  pt_entry* table = (pt_entry*) (root + hhdm_base);
+  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
 
   uint64_t offset = address & 0xFFF;
   uint16_t indices[] = {
@@ -263,7 +198,7 @@ bool vm_unmap(uintptr_t root, uintptr_t address) {
 
   if (curr_entry->present) {
     uintptr_t virtual_to_free = curr_entry->address << 12;
-    uintptr_t physical_to_free = virtual_to_free - hhdm_base;
+    uintptr_t physical_to_free = virtual_to_free - get_hhdm_base();
     pmem_free(physical_to_free);
     return true;
   } 
@@ -280,7 +215,7 @@ bool vm_unmap(uintptr_t root, uintptr_t address) {
  * \returns true if successful, or false if anything goes wrong (e.g. page is not mapped)
  */
 bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
-  pt_entry* table = (pt_entry*) (root + hhdm_base);
+  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
 
   uint64_t offset = address & 0xFFF;
   uint16_t indices[] = {
@@ -315,31 +250,6 @@ bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, boo
   return false;
 }
 
-void find_memory(struct stivale2_struct* hdr) {
-
-  struct stivale2_struct_tag_memmap* physical_tag = find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID);
-  struct stivale2_struct_tag_hhdm* virtual_tag = find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID);
-  uint64_t hhdm_start = virtual_tag->addr;
-  hhdm_base = hhdm_start;
-  kprint_f("HHDM start: %x\n", hhdm_start);
-
-  kprint_f("Usable Memory:\n");
-
-  for (int i = 0; i < physical_tag->entries; i++) {
-
-    struct stivale2_mmap_entry entry = physical_tag->memmap[i];
-
-    if (entry.type == 1) {
-      uint64_t physical_start = entry.base;
-      uint64_t physical_end = entry.base + entry.length;
-      initialize_physical_area(physical_start, physical_end);
-      uint64_t virtual_start = physical_start + hhdm_start;
-      uint64_t virtual_end = physical_end + hhdm_start;
-      // kprint_f("\t0x%x-0x%x mapped at 0x%x-0x%x\n", physical_start, physical_end, virtual_start, virtual_end);
-    }
-  }
-}
-
 void pic_setup() {
   pic_init();
   idt_set_handler(IRQ1_INTERRUPT, keypress_handler, IDT_TYPE_INTERRUPT);
@@ -354,7 +264,7 @@ void translate(void* address) {
   // This is the start of the level 4 table
   uintptr_t root = get_top_table();
 
-  pt_entry* table = (pt_entry*) (root + hhdm_base);
+  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
 
   // Break the virtual address into pieces
   uint64_t address_int = (uint64_t) address;
@@ -556,7 +466,7 @@ void _start(struct stivale2_struct* hdr) {
   term_setup(hdr);
   idt_setup();
   pic_setup();
-  find_memory(hdr);
+  initialize_memory(find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID), find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID));
 
   uint64_t init_start = locate_module(hdr, "init");
 
