@@ -119,6 +119,7 @@ void pmem_free(uintptr_t p) {
   }
 }
 
+// a temp getter function TODO make it so this can be a private variable
 uint64_t get_hhdm_base() {
   return hhdm_base;
 }
