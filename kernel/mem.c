@@ -137,7 +137,6 @@ uint64_t get_hhdm_base() {
 
 uintptr_t translate_virtual_to_physcial(void* address) {
 
-  // Mask the bottom 12 bits
   uintptr_t root = get_top_table();
 
   pt_entry* table = (pt_entry*) (root + get_hhdm_base());
@@ -170,4 +169,158 @@ uintptr_t translate_virtual_to_physcial(void* address) {
   }
 
   return (isFound) ? (uintptr_t) table + indices[0] + offset : 0;
+}
+
+/**
+ * Map a single page of memory into a virtual address space.
+ * \param root The physical address of the top-level page table structure
+ * \param address The virtual address to map into the address space, must be page-aligned
+ * \param user Should the page be user-accessible?
+ * \param writable Should the page be writable?
+ * \param executable Should the page be executable?
+ * \returns true if the mapping succeeded, or false if there was an error
+ */
+bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
+
+  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
+
+  uint64_t offset = address & 0xFFF;
+  uint16_t indices[] = {
+    (address >> 12) & 0x1FF,
+    (address >> 21) & 0x1FF,
+    (address >> 30) & 0x1FF,
+    (address >> 39) & 0x1FF // The fourth (highest) table index
+  };
+
+  pt_entry* curr_entry = NULL;
+
+  // Traverse down the virtual address to level 1
+  for (int i = 3; i >= 1; i--) {
+
+    curr_entry = (pt_entry*) (table + indices[i]);
+
+    if (curr_entry->present) {
+      table = (pt_entry*) (curr_entry->address << 12);
+    } else {
+      // Make a pt_entry on the current level, set to present
+      curr_entry->present = 1;
+      curr_entry->user = 1;
+      curr_entry->writable = 1;
+      curr_entry->no_execute = 0;
+
+      // Make a page table on the below level and initialize it to all not presents
+      uintptr_t newly_created_table = pmem_alloc();
+
+      // We have no more physical memory left! we must fail the mapping
+      if (newly_created_table == 0) {
+        return false;
+      }
+
+      // Set the table to all 0s
+      memset(newly_created_table + get_hhdm_base(), 0, 4096);
+
+      // Make our current pt_entry point to this newly created table
+      curr_entry->address = newly_created_table >> 12;
+      table = (curr_entry->address << 12) + get_hhdm_base();
+    }
+  }
+
+  pt_entry* dest = (table + indices[0]);
+  
+  dest->address = pmem_alloc() >> 12;
+  dest->present = 1;
+  dest->user = user;
+  dest->writable = writable;
+  dest->no_execute = !executable;
+
+ return true;
+}
+
+/**
+ * Unmap a page from a virtual address space
+ * \param root The physical address of the top-level page table structure
+ * \param address The virtual address to unmap from the address space
+ * \returns true if successful, or false if anything goes wrong
+ */
+bool vm_unmap(uintptr_t root, uintptr_t address) {
+
+  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
+
+  uint64_t offset = address & 0xFFF;
+  uint16_t indices[] = {
+    (address >> 12) & 0x1FF,
+    (address >> 21) & 0x1FF,
+    (address >> 30) & 0x1FF,
+    (address >> 39) & 0x1FF
+  };
+
+  pt_entry* curr_entry = NULL;
+
+  for (int i = 3; i >= 1; i--) {
+
+    curr_entry = (pt_entry*) (table + indices[i]);
+
+    if (curr_entry->present) {
+      table = (pt_entry*) (curr_entry->address << 12);
+    } else {
+      return false;
+    }
+  }
+
+  pt_entry* bottom_entry = (pt_entry*) (table + indices[0]);
+
+  if (bottom_entry->present) {
+    uintptr_t virtual_to_free = table + indices[0];
+    uintptr_t physical_to_free = virtual_to_free - get_hhdm_base();
+    pmem_free(physical_to_free);
+    return true;
+  } 
+
+  return false;
+}
+
+/**
+ * Change the protections for a page in a virtual address space
+ * \param root The physical address of the top-level page table structure
+ * \param address The virtual address to update
+ * \param user Should the page be user-accessible or kernel only?
+ * \param writable Should the page be writable?
+ * \param executable Should the page be executable?
+ * \returns true if successful, or false if anything goes wrong (e.g. page is not mapped)
+ */
+bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
+
+  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
+
+  uint64_t offset = address & 0xFFF;
+  uint16_t indices[] = {
+    (address >> 12) & 0x1FF,
+    (address >> 21) & 0x1FF,
+    (address >> 30) & 0x1FF,
+    (address >> 39) & 0x1FF
+  };
+
+  pt_entry* curr_entry = NULL;
+
+  for (int i = 3; i >= 1; i--) {
+
+    curr_entry = (pt_entry*) (table + indices[i]);
+
+    if (curr_entry->present) {
+      table = (pt_entry*) (curr_entry->address << 12);
+    } else {
+      return false;
+    }
+  }
+
+  pt_entry* bottom_entry = (pt_entry*) (table + indices[0]);
+
+  if (bottom_entry->present) {
+    bottom_entry->user = user;
+    bottom_entry->writable = writable;
+    bottom_entry->no_execute = !executable;
+    return true;
+  }
+
+  return false;
 }

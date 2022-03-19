@@ -83,173 +83,6 @@ void term_setup(struct stivale2_struct* hdr) {
   set_term_write((term_write_t)tag->term_write);
 }
 
-typedef struct pt_entry {
-  uint8_t present : 1;
-  uint8_t writable : 1;
-  uint8_t user : 1;
-  uint16_t unused0 : 9;
-  uint64_t address : 51;
-  uint8_t no_execute : 1;
-} __attribute__((packed)) pt_entry;
-
-/**
- * Map a single page of memory into a virtual address space.
- * \param root The physical address of the top-level page table structure
- * \param address The virtual address to map into the address space, must be page-aligned
- * \param user Should the page be user-accessible?
- * \param writable Should the page be writable?
- * \param executable Should the page be executable?
- * \returns true if the mapping succeeded, or false if there was an error
- */
-bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
-
-  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
-
-  uint64_t offset = address & 0xFFF;
-  uint16_t indices[] = {
-    (address >> 12) & 0x1FF,
-    (address >> 21) & 0x1FF,
-    (address >> 30) & 0x1FF,
-    (address >> 39) & 0x1FF // The fourth (highest) table index
-  };
-
-  pt_entry* curr_entry = NULL;
-
-  // Traverse down the virtual address to level 1
-  for (int i = 3; i >= 1; i--) {
-    uint16_t index = indices[i];
-    curr_entry = (pt_entry*) (table + index);
-    // kprint_f("Level %d (index %d of %p)\n", i + 1, indices[i], table);
-
-    if (curr_entry->present) {
-      // Change curr_entry and continue
-      table = (pt_entry*) (curr_entry->address << 12);
-    } else {
-      // Make a pt_entry on the current level, set to present
-      curr_entry->present = 1;
-      curr_entry->user = 1;
-      curr_entry->writable = 1;
-      curr_entry->no_execute = 0;
-
-      // Make a page table on the below level and initialize it to all not presents
-      uintptr_t newly_created_table = pmem_alloc();
-      // kprint_f("newly_created_table is %p\n", newly_created_table);
-
-      // We have no more physical memory left! we must fail the mapping
-      if (newly_created_table == 0) {
-        return false;
-      }
-
-      // Set the table to all 0s
-      memset(newly_created_table + get_hhdm_base(), 0, 4096);
-      // kprint_f("newly_created_table is %p\n", newly_created_table);
-
-      // Make our current pt_entry point to this newly created table
-      curr_entry->address = newly_created_table >> 12;
-      table = (curr_entry->address << 12) + get_hhdm_base();
-    }
-  }
-
-  pt_entry* dest = (table + indices[0]);
-  // kprint_f("the curr_entry->address is %p\n", (curr_entry->address << 12));
-  // kprint_f("Level %d (index %d of %p)\n", 1, indices[0], dest);
-  
-  dest->address = pmem_alloc() >> 12;
-  dest->present = 1;
-  dest->user = user;
-  dest->writable = writable;
-  dest->no_execute = !executable;
-
- return true;
-}
-
-/**
- * Unmap a page from a virtual address space
- * \param root The physical address of the top-level page table structure
- * \param address The virtual address to unmap from the address space
- * \returns true if successful, or false if anything goes wrong
- */
-bool vm_unmap(uintptr_t root, uintptr_t address) {
-
-  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
-
-  uint64_t offset = address & 0xFFF;
-  uint16_t indices[] = {
-    (address >> 12) & 0x1FF,
-    (address >> 21) & 0x1FF,
-    (address >> 30) & 0x1FF,
-    (address >> 39) & 0x1FF
-  };
-
-  pt_entry* curr_entry = NULL;
-
-  for (int i = 3; i >= 1; i--) {
-    uint16_t index = indices[i];
-    curr_entry = (pt_entry*) (table + index);
-
-    kprint_f("Level %d (index %d of %p)\n", i + 1, indices[i], table);
-
-    if (curr_entry->present) {
-      table = (pt_entry*) (curr_entry->address << 12);
-    } else {
-      return false;
-    }
-  }
-
-  if (curr_entry->present) {
-    uintptr_t virtual_to_free = curr_entry->address << 12;
-    uintptr_t physical_to_free = virtual_to_free - get_hhdm_base();
-    pmem_free(physical_to_free);
-    return true;
-  } 
-  return false;
-}
-
-/**
- * Change the protections for a page in a virtual address space
- * \param root The physical address of the top-level page table structure
- * \param address The virtual address to update
- * \param user Should the page be user-accessible or kernel only?
- * \param writable Should the page be writable?
- * \param executable Should the page be executable?
- * \returns true if successful, or false if anything goes wrong (e.g. page is not mapped)
- */
-bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
-  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
-
-  uint64_t offset = address & 0xFFF;
-  uint16_t indices[] = {
-    (address >> 12) & 0x1FF,
-    (address >> 21) & 0x1FF,
-    (address >> 30) & 0x1FF,
-    (address >> 39) & 0x1FF
-  };
-
-  pt_entry* curr_entry = NULL;
-
-  for (int i = 3; i >= 1; i--) {
-    uint16_t index = indices[i];
-    curr_entry = (pt_entry*) (table + index);
-
-    kprint_f("Level %d (index %d of %p)\n", i + 1, indices[i], table);
-
-    if (curr_entry->present) {
-      table = (pt_entry*) (curr_entry->address << 12);
-    } else {
-      return false;
-    }
-  }
-
-  if (curr_entry->present) {
-    curr_entry->user = user;
-    curr_entry->writable = writable;
-    curr_entry->no_execute = !executable;
-    return true;
-  } 
-
-  return false;
-}
-
 void pic_setup() {
   pic_init();
   idt_set_handler(IRQ1_INTERRUPT, keypress_handler, IDT_TYPE_INTERRUPT);
@@ -266,7 +99,6 @@ void write_cr0(uint64_t value) {
   __asm__("mov %0, %%cr0" : : "r" (value));
 }
 
-// TODO
 size_t syscall_read(int fd, void* buf, size_t count) {
 
   if (fd != 0) {
@@ -419,12 +251,12 @@ void _start(struct stivale2_struct* hdr) {
 
   kprint_f("%p\n", translate_virtual_to_physcial(_start));
 
-  // uint64_t init_start = locate_module(hdr, "init");
+  uint64_t init_start = locate_module(hdr, "init");
 
-  // kprint_f("init_start: %x\n", init_start);
-  // idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
+  kprint_f("init_start: %x\n", init_start);
+  idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
 
-  // exec(init_start);
+  exec(init_start);
 
 	halt();
 }
