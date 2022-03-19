@@ -1,10 +1,5 @@
 #include "mem.h"
 
-#include "stivale2.h"
-
-#include <stdint.h>
-#include <stdbool.h>
-
 #define PAGE_SIZE 0x1000
 
 // a page table entry
@@ -130,16 +125,16 @@ void pmem_free(uintptr_t p) {
   }
 }
 
-// a temp getter function TODO make it so this can be a private variable
-uint64_t get_hhdm_base() {
-  return hhdm_base;
+uintptr_t translate_physical_to_virtual(void* address) {
+  uint64_t address_int = (uint64_t) address;
+  return address_int + hhdm_base;
 }
 
 uintptr_t translate_virtual_to_physcial(void* address) {
 
   uintptr_t root = get_top_table();
 
-  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
+  pt_entry* table = (pt_entry*) (root + hhdm_base);
 
   // Break the virtual address into pieces
   uint64_t address_int = (uint64_t) address;
@@ -182,7 +177,7 @@ uintptr_t translate_virtual_to_physcial(void* address) {
  */
 bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
 
-  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
+  pt_entry* table = (pt_entry*) (root + hhdm_base);
 
   uint64_t offset = address & 0xFFF;
   uint16_t indices[] = {
@@ -217,11 +212,11 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
       }
 
       // Set the table to all 0s
-      memset(newly_created_table + get_hhdm_base(), 0, 4096);
+      memset(newly_created_table + hhdm_base, 0, 4096);
 
       // Make our current pt_entry point to this newly created table
       curr_entry->address = newly_created_table >> 12;
-      table = (curr_entry->address << 12) + get_hhdm_base();
+      table = (curr_entry->address << 12) + hhdm_base;
     }
   }
 
@@ -244,7 +239,7 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
  */
 bool vm_unmap(uintptr_t root, uintptr_t address) {
 
-  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
+  pt_entry* table = (pt_entry*) (root + hhdm_base);
 
   uint64_t offset = address & 0xFFF;
   uint16_t indices[] = {
@@ -271,7 +266,7 @@ bool vm_unmap(uintptr_t root, uintptr_t address) {
 
   if (bottom_entry->present) {
     uintptr_t virtual_to_free = table + indices[0];
-    uintptr_t physical_to_free = virtual_to_free - get_hhdm_base();
+    uintptr_t physical_to_free = virtual_to_free - hhdm_base;
     pmem_free(physical_to_free);
     return true;
   } 
@@ -290,7 +285,7 @@ bool vm_unmap(uintptr_t root, uintptr_t address) {
  */
 bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
 
-  pt_entry* table = (pt_entry*) (root + get_hhdm_base());
+  pt_entry* table = (pt_entry*) (root + hhdm_base);
 
   uint64_t offset = address & 0xFFF;
   uint16_t indices[] = {
