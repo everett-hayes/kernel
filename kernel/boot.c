@@ -72,16 +72,16 @@ void* find_tag(struct stivale2_struct* hdr, uint64_t id) {
 	return NULL;
 }
 
-void term_setup(struct stivale2_struct* hdr) {
-  // Look for a terminal tag
-  struct stivale2_struct_tag_terminal* tag = find_tag(hdr, STIVALE2_STRUCT_TAG_TERMINAL_ID);
+// void term_setup(struct stivale2_struct* hdr) {
+//   // Look for a terminal tag
+//   struct stivale2_struct_tag_terminal* tag = find_tag(hdr, STIVALE2_STRUCT_TAG_TERMINAL_ID);
 
-  // Make sure we find a terminal tag
-  if (tag == NULL) halt();
+//   // Make sure we find a terminal tag
+//   if (tag == NULL) halt();
 
-  // Save the term_write function pointer
-  set_term_write((term_write_t)tag->term_write);
-}
+//   // Save the term_write function pointer
+//   set_term_write((term_write_t)tag->term_write);
+// }
 
 void pic_setup() {
   pic_init();
@@ -243,13 +243,13 @@ void exec(uintptr_t elf_address) {
 }
 
 void _start(struct stivale2_struct* hdr) {
-  // We've booted! Let's start processing tags passed to use from the bootloader
-  term_setup(hdr);
-  idt_setup();
-  pic_setup();
-  initialize_memory(find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID), find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID));
 
-  kprint_f("%p\n", translate_virtual_to_physcial(_start));
+  idt_setup();
+  initialize_memory(find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID), find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID));
+  term_init();
+  pic_setup();
+
+  kprint_f("the physical address of start: %p\n", translate_virtual_to_physcial(_start));
 
   uint64_t init_start = locate_module(hdr, "init");
 

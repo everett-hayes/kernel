@@ -1,9 +1,4 @@
 #include "kprint.h"
-#include "string.h"
-
-#include <stdint.h>
-#include <stdarg.h>
-#include <stddef.h>
 
 #define DECIMAL 10
 #define HEXADECIMAL 16
@@ -44,12 +39,17 @@ void reverse(char* str, int len) {
 
 // Print a single character to the terminal
 void kprint_c(char c) {
-  term_write(&c, 1);
+  term_putchar(c);
 }
 
 // Print a string to the terminal
 void kprint_s(const char* str) {
-  term_write(str, strlen(str));
+
+  int len = strlen(str);
+
+  for (int i = 0; i < len; i++) {
+    term_putchar(str[i]);
+  }
 }
 
 void kprint_num(uint64_t value, int base) {
