@@ -4,13 +4,19 @@
 
 // a page table entry
 typedef struct pt_entry {
-  uint8_t present : 1;
-  uint8_t writable : 1;
-  uint8_t user : 1;
-  uint16_t unused0 : 9;
-  uint64_t address : 51;
-  uint8_t no_execute : 1;
-} __attribute__((packed)) pt_entry;
+  bool present : 1;
+  bool writable : 1;
+  bool user : 1;
+  bool write_through : 1;
+  bool cache_disable : 1;
+  bool accessed : 1;
+  bool dirty : 1;
+  bool page_size : 1;
+  uint8_t _unused0 : 4;
+  uintptr_t address : 40;
+  uint16_t _unused1 : 11;
+  bool no_execute : 1;
+} __attribute__((packed)) pt_entry_t;
 
 // Define the structure of a node within the freelist
 typedef struct free_list_node {
@@ -134,7 +140,7 @@ uintptr_t translate_virtual_to_physcial(void* address) {
 
   uintptr_t root = get_top_table();
 
-  pt_entry* table = (pt_entry*) (root + hhdm_base);
+  pt_entry_t* table = (pt_entry_t*) (root + hhdm_base);
 
   // Break the virtual address into pieces
   uint64_t address_int = (uint64_t) address;
@@ -152,7 +158,7 @@ uintptr_t translate_virtual_to_physcial(void* address) {
   for (int i = 3; i >= 1; i--) {
 
     // get the current entry
-    pt_entry* curr_entry = (pt_entry*) (table + indices[i]);
+    pt_entry_t* curr_entry = (pt_entry_t*) (table + indices[i]);
 
     if (!curr_entry->present) {
       isFound = false;
@@ -160,7 +166,7 @@ uintptr_t translate_virtual_to_physcial(void* address) {
     }
 
     // advance pointer to next level of table
-    table = (pt_entry*) (curr_entry->address << 12);
+    table = (pt_entry_t*) (curr_entry->address << 12);
   }
 
   return (isFound) ? (uintptr_t) table + indices[0] + offset : 0;
@@ -177,7 +183,7 @@ uintptr_t translate_virtual_to_physcial(void* address) {
  */
 bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
 
-  pt_entry* table = (pt_entry*) (root + hhdm_base);
+  pt_entry_t* table = (pt_entry_t*) (root + hhdm_base);
 
   uint64_t offset = address & 0xFFF;
   uint16_t indices[] = {
@@ -187,17 +193,17 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
     (address >> 39) & 0x1FF // The fourth (highest) table index
   };
 
-  pt_entry* curr_entry = NULL;
+  pt_entry_t* curr_entry = NULL;
 
   // Traverse down the virtual address to level 1
   for (int i = 3; i >= 1; i--) {
 
-    curr_entry = (pt_entry*) (table + indices[i]);
+    curr_entry = (pt_entry_t*) (table + indices[i]);
 
     if (curr_entry->present) {
-      table = (pt_entry*) (curr_entry->address << 12);
+      table = (pt_entry_t*) (curr_entry->address << 12);
     } else {
-      // Make a pt_entry on the current level, set to present
+      // Make a pt_entry_t on the current level, set to present
       curr_entry->present = 1;
       curr_entry->user = 1;
       curr_entry->writable = 1;
@@ -214,13 +220,13 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
       // Set the table to all 0s
       memset(newly_created_table + hhdm_base, 0, 4096);
 
-      // Make our current pt_entry point to this newly created table
+      // Make our current pt_entry_t point to this newly created table
       curr_entry->address = newly_created_table >> 12;
       table = (curr_entry->address << 12) + hhdm_base;
     }
   }
 
-  pt_entry* dest = (table + indices[0]);
+  pt_entry_t* dest = (table + indices[0]);
   
   dest->address = pmem_alloc() >> 12;
   dest->present = 1;
@@ -239,7 +245,7 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
  */
 bool vm_unmap(uintptr_t root, uintptr_t address) {
 
-  pt_entry* table = (pt_entry*) (root + hhdm_base);
+  pt_entry_t* table = (pt_entry_t*) (root + hhdm_base);
 
   uint64_t offset = address & 0xFFF;
   uint16_t indices[] = {
@@ -249,20 +255,20 @@ bool vm_unmap(uintptr_t root, uintptr_t address) {
     (address >> 39) & 0x1FF
   };
 
-  pt_entry* curr_entry = NULL;
+  pt_entry_t* curr_entry = NULL;
 
   for (int i = 3; i >= 1; i--) {
 
-    curr_entry = (pt_entry*) (table + indices[i]);
+    curr_entry = (pt_entry_t*) (table + indices[i]);
 
     if (curr_entry->present) {
-      table = (pt_entry*) (curr_entry->address << 12);
+      table = (pt_entry_t*) (curr_entry->address << 12);
     } else {
       return false;
     }
   }
 
-  pt_entry* bottom_entry = (pt_entry*) (table + indices[0]);
+  pt_entry_t* bottom_entry = (pt_entry_t*) (table + indices[0]);
 
   if (bottom_entry->present) {
     uintptr_t virtual_to_free = table + indices[0];
@@ -285,7 +291,7 @@ bool vm_unmap(uintptr_t root, uintptr_t address) {
  */
 bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
 
-  pt_entry* table = (pt_entry*) (root + hhdm_base);
+  pt_entry_t* table = (pt_entry_t*) (root + hhdm_base);
 
   uint64_t offset = address & 0xFFF;
   uint16_t indices[] = {
@@ -295,20 +301,20 @@ bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, boo
     (address >> 39) & 0x1FF
   };
 
-  pt_entry* curr_entry = NULL;
+  pt_entry_t* curr_entry = NULL;
 
   for (int i = 3; i >= 1; i--) {
 
-    curr_entry = (pt_entry*) (table + indices[i]);
+    curr_entry = (pt_entry_t*) (table + indices[i]);
 
     if (curr_entry->present) {
-      table = (pt_entry*) (curr_entry->address << 12);
+      table = (pt_entry_t*) (curr_entry->address << 12);
     } else {
       return false;
     }
   }
 
-  pt_entry* bottom_entry = (pt_entry*) (table + indices[0]);
+  pt_entry_t* bottom_entry = (pt_entry_t*) (table + indices[0]);
 
   if (bottom_entry->present) {
     bottom_entry->user = user;
