@@ -245,18 +245,21 @@ void exec(uintptr_t elf_address) {
 void _start(struct stivale2_struct* hdr) {
 
   idt_setup();
-  initialize_memory(find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID), find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID));
   term_init();
+  initialize_memory(find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID), find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID));
+  kprint_f("before unmapping!\n");
+  unmap_lower_half();
+  kprint_f("after unmapping!\n");
   pic_setup();
 
-  kprint_f("the physical address of start: %p\n", translate_virtual_to_physcial(_start));
+  // kprint_f("the physical address of start: %p\n", translate_virtual_to_physcial(_start));
 
-  uint64_t init_start = locate_module(hdr, "init");
+  // uint64_t init_start = locate_module(hdr, "init");
 
-  kprint_f("init_start: %x\n", init_start);
-  idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
+  // kprint_f("init_start: %x\n", init_start);
+  // idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
 
-  exec(init_start);
+  // exec(init_start);
 
 	halt();
 }

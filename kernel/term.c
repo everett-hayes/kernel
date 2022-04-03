@@ -130,7 +130,7 @@ void term_putchar(char c) {
 // Initialize the terminal
 void term_init() {
   // Get a usable pointer to the VGA text mode buffer
-  term = translate_physical_to_virtual(VGA_BUFFER);
+  term = ptov(VGA_BUFFER);
 
   term_enable_cursor();
   term_clear();

@@ -3,12 +3,6 @@
 #define DECIMAL 10
 #define HEXADECIMAL 16
 
-term_write_t term_write = NULL;
-
-void set_term_write(term_write_t fn) {
-    term_write = fn;
-}
-
 // Return the number of digits of a value with respect to a base
 int digit_len(uint64_t num, int base) {
   int i = 0;
