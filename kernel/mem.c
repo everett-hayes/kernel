@@ -147,7 +147,7 @@ uintptr_t ptov(void* address) {
 
 uintptr_t translate_virtual_to_physcial(void* address) {
 
-  uintptr_t root = get_top_table();
+  uintptr_t root = get_top_table(); // returns a physical address
 
   pt_entry_t* table = (pt_entry_t*) (root + hhdm_base);
 
@@ -390,5 +390,5 @@ void unmap_lower_half() {
   }
 
   // Reload CR3 to flush any cached address translations
-  // write_cr3(read_cr3());
+  write_cr3(read_cr3());
 }
