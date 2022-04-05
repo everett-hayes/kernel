@@ -61,6 +61,11 @@ void write_cr3(uint64_t value) {
   __asm__("mov %0, %%cr3" : : "r" (value));
 }
 
+void invalidate_tlb(uintptr_t virtual_address) {
+   __asm__("invlpg (%0)" :: "r" (virtual_address) : "memory");
+}
+
+
 uintptr_t get_top_table() {
   return read_cr3() & 0xFFFFFFFFFFFFF000;
 }
@@ -238,7 +243,9 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
   dest->writable = writable;
   dest->no_execute = !executable;
 
- return true;
+  invalidate_tlb(address);
+
+  return true;
 }
 
 /**
@@ -279,7 +286,9 @@ bool vm_unmap(uintptr_t root, uintptr_t address) {
     uintptr_t physical_to_free = virtual_to_free - hhdm_base;
     pmem_free(physical_to_free);
     return true;
-  } 
+  }
+
+  invalidate_tlb(address); 
 
   return false;
 }
@@ -326,6 +335,8 @@ bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, boo
     bottom_entry->no_execute = !executable;
     return true;
   }
+
+  invalidate_tlb(address);
 
   return false;
 }
