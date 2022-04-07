@@ -148,7 +148,6 @@ uint64_t syscall(uint64_t num, ...);
 void syscall_entry();
 
 int64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
-  kprint_f("Hello world from the syscall!\n");
 
   switch (num) {
     case 0:

@@ -2,14 +2,15 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#define SYS_read 0
-#define SYS_write 1
-
-extern int syscall(uint64_t nr, ...);
+#include "stdio.h"
 
 void _start() {
-  // Issue a write system call
-  syscall(SYS_write, 1, "Hello world!\n", 13);
+
+  write(1, "Hello\n", 6);
+
+  printf("we dem bois\n");
+
+  printf("i am %d years old and my name is %s\n", 15, "johnny");
 
   // Loop forever
   for(;;){}
