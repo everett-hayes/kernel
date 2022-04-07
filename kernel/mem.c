@@ -192,7 +192,7 @@ uintptr_t translate_virtual_to_physcial(void* address) {
  */
 bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
 
-  pt_entry_t* table = (pt_entry_t*) (root + hhdm_base);
+  pt_entry_t* table = root + hhdm_base;
 
   uint64_t offset = address & 0xFFF;
   uint16_t indices[] = {
@@ -207,10 +207,10 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
   // Traverse down the virtual address to level 1
   for (int i = 3; i >= 1; i--) {
 
-    curr_entry = (pt_entry_t*) (table + indices[i]);
+    curr_entry = (table + indices[i]);
 
     if (curr_entry->present) {
-      table = (pt_entry_t*) (curr_entry->address << 12);
+      table = (curr_entry->address << 12) + hhdm_base;
     } else {
       // Make a pt_entry_t on the current level, set to present
       curr_entry->present = 1;
@@ -235,7 +235,7 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
     }
   }
 
-  pt_entry_t* dest = (table + indices[0]);
+  pt_entry_t* dest = table + indices[0];
   
   dest->address = pmem_alloc() >> 12;
   dest->present = 1;

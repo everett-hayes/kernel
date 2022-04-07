@@ -228,7 +228,7 @@ void exec(uintptr_t elf_address) {
       // copy contents of elf file to virtual address
       // ask charlie about this line!
       memcpy(prg_header_curr->p_vaddr, elf_address + prg_header_curr->p_offset, prg_header_curr->p_memsz);
-      vm_protect(root, prg_header_curr->p_vaddr, true, writable, executable);
+      // vm_protect(root, prg_header_curr->p_vaddr, true, writable, executable);
     }
 
     // advance pointer by size of program header
@@ -252,12 +252,12 @@ void _start(struct stivale2_struct* hdr) {
 
   kprint_f("the physical address of start: %p\n", translate_virtual_to_physcial(_start));
 
-  // uint64_t init_start = locate_module(hdr, "init");
+  uint64_t init_start = locate_module(hdr, "init");
 
-  // kprint_f("init_start: %x\n", init_start);
-  // idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
+  kprint_f("init_start: %x\n", init_start);
+  idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
 
-  // exec(init_start);
+  exec(init_start);
 
 	halt();
 }
