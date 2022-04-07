@@ -149,7 +149,7 @@ uintptr_t translate_virtual_to_physcial(void* address) {
 
   uintptr_t root = get_top_table(); // returns a physical address
 
-  pt_entry_t* table = (pt_entry_t*) (root + hhdm_base);
+  pt_entry_t* table = root + hhdm_base;
 
   // Break the virtual address into pieces
   uint64_t address_int = (uint64_t) address;
@@ -167,7 +167,7 @@ uintptr_t translate_virtual_to_physcial(void* address) {
   for (int i = 3; i >= 1; i--) {
 
     // get the current entry
-    pt_entry_t* curr_entry = (pt_entry_t*) (table + indices[i]);
+    pt_entry_t* curr_entry = table + indices[i];
 
     if (!curr_entry->present) {
       isFound = false;
@@ -178,7 +178,7 @@ uintptr_t translate_virtual_to_physcial(void* address) {
     table = (curr_entry->address << 12) + hhdm_base;
   }
 
-  return (isFound) ? (uintptr_t) table + indices[0] + offset : 0;
+  return (isFound) ? (uintptr_t) table + indices[0] + offset - hhdm_base : 0;
 }
 
 /**

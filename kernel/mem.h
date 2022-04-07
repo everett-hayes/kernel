@@ -1,7 +1,6 @@
 #pragma once
 
 #include "stivale2.h"
-#include "kprint.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -14,6 +13,7 @@ void initialize_memory(struct stivale2_struct_tag_memmap* physical_tag, struct s
 uintptr_t pmem_alloc();
 void pmem_free(uintptr_t p);
 uintptr_t ptov(void* address);
+uintptr_t translate_virtual_to_physcial(void* address);
 bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable);
 bool vm_unmap(uintptr_t root, uintptr_t address);
 bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable);
