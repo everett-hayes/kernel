@@ -304,7 +304,7 @@ bool vm_unmap(uintptr_t root, uintptr_t address) {
  */
 bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, bool executable) {
 
-  pt_entry_t* table = (pt_entry_t*) (root + hhdm_base);
+  pt_entry_t* table = root + hhdm_base;
 
   uint64_t offset = address & 0xFFF;
   uint16_t indices[] = {
@@ -318,16 +318,16 @@ bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, boo
 
   for (int i = 3; i >= 1; i--) {
 
-    curr_entry = (pt_entry_t*) (table + indices[i]);
+    curr_entry = table + indices[i];
 
     if (curr_entry->present) {
-      table = (pt_entry_t*) (curr_entry->address << 12);
+      table = (curr_entry->address << 12) + hhdm_base;
     } else {
       return false;
     }
   }
 
-  pt_entry_t* bottom_entry = (pt_entry_t*) (table + indices[0]);
+  pt_entry_t* bottom_entry = table + indices[0];
 
   if (bottom_entry->present) {
     bottom_entry->user = user;

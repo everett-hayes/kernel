@@ -228,7 +228,7 @@ void exec(uintptr_t elf_address) {
       // copy contents of elf file to virtual address
       // ask charlie about this line!
       memcpy(prg_header_curr->p_vaddr, elf_address + prg_header_curr->p_offset, prg_header_curr->p_memsz);
-      // vm_protect(root, prg_header_curr->p_vaddr, true, writable, executable);
+      vm_protect(root, prg_header_curr->p_vaddr, true, writable, executable);
     }
 
     // advance pointer by size of program header
