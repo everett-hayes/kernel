@@ -175,7 +175,7 @@ uintptr_t translate_virtual_to_physcial(void* address) {
     }
 
     // advance pointer to next level of table
-    table = (pt_entry_t*) (curr_entry->address << 12);
+    table = (curr_entry->address << 12) + hhdm_base;
   }
 
   return (isFound) ? (uintptr_t) table + indices[0] + offset : 0;
