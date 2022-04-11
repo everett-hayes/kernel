@@ -1,5 +1,4 @@
 #include "stdmem.h"
-
 #include "stdio.h"
 
 #define SYS_MMAP 2
@@ -32,15 +31,7 @@ void* memcpy(void* dest, const void* src, size_t size) {
 
 
 void* mmap(void* addr, size_t length, int prot, int flags, int fd, int offset) {
-  // parse flags to readable and writable bools
-
-  uint64_t result = 0;
-
-  uint64_t temp = syscall(SYS_MMAP, NULL, 1, 1, 0, length, &result);
-
-  printf("temp is %p inside the lib\n", result);
-
-  return (void*) result;
+  return (void*) syscall(SYS_MMAP, NULL, 1, 1, 0, length);
 }
 
 void* bump = NULL;
@@ -56,7 +47,6 @@ void* malloc(size_t sz) {
     // No. Get some more space using `mmap`
     size_t rounded_up = ROUND_UP(sz, 4096);
     void* newmem = mmap(NULL, rounded_up, 1, -1, -1, 0);
-    printf("the newmem is %p\n", newmem);
 
     // Check for errors
     if (newmem == NULL) {
@@ -72,14 +62,9 @@ void* malloc(size_t sz) {
   bump += sz;
   space_remaining -= sz;
 
-  printf("the result is %p\n", (uint64_t) result);
-  return (uint64_t) result;
+  return result;
 }
 
 void free(void* p) {
   // Do nothing
 }
-
-
-// mmap (this one requires a new system call)
-

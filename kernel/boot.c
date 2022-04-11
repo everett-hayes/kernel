@@ -143,26 +143,22 @@ size_t syscall_write(int fd, void *buf, size_t count) {
   return count;
 }
 
-uint64_t temper = 0;
+uint64_t malloc_pointer = 0;
 
 uint64_t syscall_memmap(uintptr_t address, bool user, bool writable, bool executable, size_t length) {
 
-  if (temper == 0) {
-    kprint_f("inside the if condition!!!\n");
-    temper = get_hhdm_base() + 0x1000;
-    kprint_f("temper is now %p\n", temper);
+  // if the bottom pointer is not yet created: we need to make it
+  if (malloc_pointer == 0) {
+    malloc_pointer = get_hhdm_base() + 0x1000;
   }
 
-  bool res = vm_map(get_top_table(), temper, user, writable, executable);
+  bool res = vm_map(get_top_table(), malloc_pointer, user, writable, executable);
 
   if (res) {
-    uint64_t temp = temper;
-    // bump temper
-    temper += 0x1000 * (length / 4096);
-    kprint_f("temper is now %p after bumping\n", temper);
-
-    kprint_f("right before returning to lib I am %p\n", temp);
-    return temp;
+    uint64_t allocated_address = malloc_pointer;
+    // bump malloc_pointer
+    malloc_pointer += 0x1000 * (length / 4096);
+    return allocated_address;
   } 
 
   return 0x0;
@@ -172,7 +168,7 @@ uint64_t syscall_memmap(uintptr_t address, bool user, bool writable, bool execut
 uint64_t syscall(uint64_t num, ...);
 void syscall_entry();
 
-int64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
+uint64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
 
   uint64_t temper;
 
@@ -184,13 +180,10 @@ int64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t arg
       syscall_read(arg0, arg1, arg2);
       break;
     case 2:
-      temper = syscall_memmap(arg0, arg1, arg2, arg3, arg4);
-      uint64_t* oops = arg5;
-      *oops = temper;
-      kprint_f("inside the switch I am %p\n", *oops);
+      return syscall_memmap(arg0, arg1, arg2, arg3, arg4);
       break;
     default:
-      kprint_f("you've done something very wrong\n");
+      kprint_f("you've called a syscall that doesn't exist!!\n");
   }
   return num;
 }

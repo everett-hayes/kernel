@@ -3,6 +3,7 @@
 #include <stdbool.h>
 
 #include "stdio.h"
+#include "stdmem.h"
 
 void _start() {
 
@@ -16,20 +17,11 @@ void _start() {
     int num;
   } node_t;
 
-  int temper = sizeof(node_t);
-  printf("the size of node_t is %d\n", temper);
+  node_t* pointer = (node_t*) malloc(sizeof(node_t));
 
-  // uintptr_t address = (uintptr_t) malloc(sizeof(node_t));
+  pointer->num = 4;
 
-  printf("%p\n", (uint64_t) malloc(sizeof(node_t)));
-
-  // node_t* temp = (node_t*) malloc(sizeof(node_t));
-
-  // printf("%p\n", temp);
-
-  // temp->num = 4;
-
-  // printf("num: %d\n", temp->num);
+  printf("%d\n", pointer->num);
 
   // Loop forever
   for(;;){}

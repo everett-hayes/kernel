@@ -3,6 +3,8 @@
 #define SYS_WRITE 0
 #define SYS_READ 1
 
+uint64_t syscall(uint64_t num, ...);
+
 // read (a wrapper around the syscall invocation
 size_t read(int fd, void* buf, size_t count) {
     return syscall(SYS_READ, fd, buf, count);

@@ -9,6 +9,7 @@
     "stddef.h": "c",
     "istream": "c",
     "ostream": "c",
-    "type_traits": "c"
+    "type_traits": "c",
+    "__config": "c"
   }
 }
