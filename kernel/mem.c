@@ -51,6 +51,10 @@ void* memcpy(void* dest, const void* src, size_t size) {
 
 uint64_t hhdm_base;
 
+uint64_t get_hhdm_base() {
+  return hhdm_base;
+}
+
 uintptr_t read_cr3() {
   uintptr_t value;
   __asm__("mov %%cr3, %0" : "=r" (value));

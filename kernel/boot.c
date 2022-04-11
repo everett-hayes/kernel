@@ -15,6 +15,7 @@
 
 #define SYS_WRITE 0
 #define SYS_READ 1
+#define SYS_MMAP 2
 
 // Reserve space for the stack
 static uint8_t stack[8192];
@@ -142,6 +143,30 @@ size_t syscall_write(int fd, void *buf, size_t count) {
   return count;
 }
 
+uint64_t temper = 0;
+
+uint64_t syscall_memmap(uintptr_t address, bool user, bool writable, bool executable, size_t length) {
+
+  if (temper == 0) {
+    kprint_f("inside the if condition!!!\n");
+    temper = get_hhdm_base() + 0x1000;
+    kprint_f("temper is now %p\n", temper);
+  }
+
+  bool res = vm_map(get_top_table(), temper, user, writable, executable);
+
+  if (res) {
+    uint64_t temp = temper;
+    // bump temper
+    temper += 0x1000 * (length / 4096);
+    kprint_f("temper is now %p after bumping\n", temper);
+
+    kprint_f("right before returning to lib I am %p\n", temp);
+    return temp;
+  } 
+
+  return 0x0;
+}
 
 // No more arguments than 6!
 uint64_t syscall(uint64_t num, ...);
@@ -149,12 +174,20 @@ void syscall_entry();
 
 int64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
 
+  uint64_t temper;
+
   switch (num) {
     case 0:
       syscall_write(arg0, arg1, arg2);
       break;
     case 1:
       syscall_read(arg0, arg1, arg2);
+      break;
+    case 2:
+      temper = syscall_memmap(arg0, arg1, arg2, arg3, arg4);
+      uint64_t* oops = arg5;
+      *oops = temper;
+      kprint_f("inside the switch I am %p\n", *oops);
       break;
     default:
       kprint_f("you've done something very wrong\n");
