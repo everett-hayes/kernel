@@ -26,8 +26,8 @@ void idt_set_handler(uint8_t index, void* fn, uint8_t type) {
   idt[index].type = type;
   idt[index].ist = 0;
   idt[index].present = 1;
-  idt[index].dpl = 0;
-  idt[index].selector = IDT_CODE_SELECTOR;
+  idt[index].dpl = 3; // 0 IDT_CODE_SELECTOR
+  idt[index].selector = KERNEL_CODE_SELECTOR; // IDT_CODE_SELECTOR
 
   // fn has 8 bytes -> 64 bits
   // offset_0 gets the first 16 bits

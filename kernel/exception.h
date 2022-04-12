@@ -1,9 +1,11 @@
 #pragma once
 
+#include "gdt.h"
 #include <stdint.h>
 
 // Every interrupt handler must specify a code selector. We'll use entry 5 (5*8=0x28), which
 // is where our bootloader set up a usable code selector for 64-bit mode.
+// After setting up the new GDT table we must change this
 #define IDT_CODE_SELECTOR 0x28
 
 // IDT entry types

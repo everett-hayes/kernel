@@ -12,6 +12,8 @@
 #include "elf.h"
 #include "string.h"
 #include "mem.h"
+#include "gdt.h"
+#include "usermode_entry.h"
 
 #define SYS_WRITE 0
 #define SYS_READ 1
@@ -260,11 +262,28 @@ void exec(uintptr_t elf_address) {
     temp += ph_size;
   }
 
-  typedef void (*elf_exec_t)();
-  elf_exec_t current_exe = (elf_exec_t) (header->e_entry);
-  current_exe();
+  // now switch to usermode!!!
+  // Pick an arbitrary location and size for the user-mode stack
+  uintptr_t user_stack = 0x70000000000;
+  size_t user_stack_size = 8 * 0x1000;
 
-  kprint_f("elf mapped in memory!!!\n");
+  // Map the user-mode-stack
+  for (uintptr_t p = user_stack; p < user_stack + user_stack_size; p += 0x1000) {
+    // Map a page that is user-accessible, writable, but not executable
+    vm_map(get_top_table(), p, true, true, false);
+  }
+
+  kprint_f("about to jump!\n");
+
+  // And now jump to the entry point
+  usermode_entry(USER_DATA_SELECTOR | 0x3,          // User data selector with priv=3
+                user_stack + user_stack_size - 8,   // Stack starts at the high address minus 8 bytes
+                USER_CODE_SELECTOR | 0x3,           // User code selector with priv=3
+                header->e_entry);        
+
+  // typedef void (*elf_exec_t)();
+  // elf_exec_t current_exe = (elf_exec_t) (header->e_entry);
+  // current_exe();
 }
 
 void _start(struct stivale2_struct* hdr) {
@@ -274,12 +293,16 @@ void _start(struct stivale2_struct* hdr) {
   term_init();
   unmap_lower_half();
   pic_setup();
+  gdt_setup();
 
-  kprint_f("the physical address of start: %p\n", translate_virtual_to_physcial(_start));
+  // kprint_f("Hello\n");
+
+  // kprint_f("the physical address of start: %p\n", translate_virtual_to_physcial(_start));
 
   uint64_t init_start = locate_module(hdr, "init");
 
   kprint_f("init_start: %x\n", init_start);
+  // enables syscalls?
   idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
 
   exec(init_start);
