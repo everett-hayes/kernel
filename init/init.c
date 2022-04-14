@@ -13,15 +13,17 @@ void _start() {
 
   printf("i am %d years old and my name is %s\n", 15, "johnny");
 
-  // typedef struct node {
-  //   int num;
-  // } node_t;
+  typedef struct node {
+    int num;
+  } node_t;
 
-  // node_t* pointer = (node_t*) malloc(sizeof(node_t));
+  node_t* pointer = (node_t*) malloc(sizeof(node_t));
 
-  // pointer->num = 4;
+  printf("%p\n", pointer);
 
-  // printf("%d\n", pointer->num);
+  pointer->num = 4;
+
+  printf("%d\n", pointer->num);
 
   // Loop forever
   for(;;){}

@@ -14,6 +14,7 @@
 #include "mem.h"
 #include "gdt.h"
 #include "usermode_entry.h"
+#include "syscallC.h"
 
 #define SYS_WRITE 0
 #define SYS_READ 1
@@ -75,119 +76,10 @@ void* find_tag(struct stivale2_struct* hdr, uint64_t id) {
 	return NULL;
 }
 
-// void term_setup(struct stivale2_struct* hdr) {
-//   // Look for a terminal tag
-//   struct stivale2_struct_tag_terminal* tag = find_tag(hdr, STIVALE2_STRUCT_TAG_TERMINAL_ID);
-
-//   // Make sure we find a terminal tag
-//   if (tag == NULL) halt();
-
-//   // Save the term_write function pointer
-//   set_term_write((term_write_t)tag->term_write);
-// }
-
 void pic_setup() {
   pic_init();
   idt_set_handler(IRQ1_INTERRUPT, keypress_handler, IDT_TYPE_INTERRUPT);
   pic_unmask_irq(1);
-}
-
-uint64_t read_cr0() {
-  uintptr_t value;
-  __asm__("mov %%cr0, %0" : "=r" (value));
-  return value;
-}
-
-void write_cr0(uint64_t value) {
-  __asm__("mov %0, %%cr0" : : "r" (value));
-}
-
-size_t syscall_read(int fd, void* buf, size_t count) {
-
-  if (fd != 0) {
-    return -1;
-  }
-
-  char* char_buf = (char*) buf; 
-
-  for (int i = 0; i < count; i++) {
-    char val = kgetc(); // need to check if this is a backspace
-
-    // MAKE SURE WE DON"T BACKSPACE TOO MUCH !!!!! TODO
-    if (val == '\b') {
-      *char_buf = '\0';
-      char_buf -= 1; // move address backward 1 byte
-      i -= 2; // don't count the backspace or the eaten char
-    } else {
-      *char_buf = val;
-      char_buf += 1; // move address forward 1 byte
-    } 
-  }
-
-  return count;
-}
-
-size_t syscall_write(int fd, void *buf, size_t count) {
-
-  if (fd != 1 && fd != 2) {
-    return -1;
-  }
-
-  char* char_buf = (char*) buf; 
-
-  // Pop off character from the buffer and print it 
-  for (int i = 0; i < count; i++) {
-    char val = *char_buf;
-    kprint_f("%c", val);
-    char_buf += 1; // Move address 1 byte backwards
-  }
-
-  return count;
-}
-
-uint64_t malloc_pointer = 0;
-
-uint64_t syscall_memmap(uintptr_t address, bool user, bool writable, bool executable, size_t length) {
-
-  // if the bottom pointer is not yet created: we need to make it
-  if (malloc_pointer == 0) {
-    malloc_pointer = get_hhdm_base() + 0x1000;
-  }
-
-  bool res = vm_map(get_top_table(), malloc_pointer, user, writable, executable);
-
-  if (res) {
-    uint64_t allocated_address = malloc_pointer;
-    // bump malloc_pointer
-    malloc_pointer += 0x1000 * (length / 4096);
-    return allocated_address;
-  } 
-
-  return 0x0;
-}
-
-// No more arguments than 6!
-uint64_t syscall(uint64_t num, ...);
-void syscall_entry();
-
-uint64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
-
-  uint64_t temper;
-
-  switch (num) {
-    case 0:
-      syscall_write(arg0, arg1, arg2);
-      break;
-    case 1:
-      syscall_read(arg0, arg1, arg2);
-      break;
-    case 2:
-      return syscall_memmap(arg0, arg1, arg2, arg3, arg4);
-      break;
-    default:
-      kprint_f("you've called a syscall that doesn't exist!!\n");
-  }
-  return num;
 }
 
 uint64_t locate_module(struct stivale2_struct* hdr, char* module_name) {
@@ -286,6 +178,7 @@ void exec(uintptr_t elf_address) {
   // current_exe();
 }
 
+
 void _start(struct stivale2_struct* hdr) {
 
   idt_setup();
@@ -303,7 +196,7 @@ void _start(struct stivale2_struct* hdr) {
 
   kprint_f("init_start: %x\n", init_start);
   // enables syscalls?
-  idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
+  setup_syscall();
 
   exec(init_start);
 
