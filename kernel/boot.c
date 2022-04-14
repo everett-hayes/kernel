@@ -16,10 +16,6 @@
 #include "usermode_entry.h"
 #include "syscallC.h"
 
-#define SYS_WRITE 0
-#define SYS_READ 1
-#define SYS_MMAP 2
-
 // Reserve space for the stack
 static uint8_t stack[8192];
 
@@ -81,6 +77,15 @@ void pic_setup() {
   idt_set_handler(IRQ1_INTERRUPT, keypress_handler, IDT_TYPE_INTERRUPT);
   pic_unmask_irq(1);
 }
+
+// void exec_syscall(struct stivale2_struct* hdr, char* module_name) {
+
+//   uint64_t module_address = locate_module(hdr, module_name);
+
+//   if (module_address == -1) return;
+
+//   exec(module_address);
+// }
 
 uint64_t locate_module(struct stivale2_struct* hdr, char* module_name) {
   struct stivale2_struct_tag_modules* tag = find_tag(hdr, STIVALE2_STRUCT_TAG_MODULES_ID);

@@ -1,5 +1,10 @@
 #include "syscallC.h"
 
+#define SYS_WRITE 0
+#define SYS_READ 1
+#define SYS_MMAP 2
+#define SYS_EXEC 3
+
 size_t syscall_read(int fd, void* buf, size_t count) {
 
   if (fd != 0) {
@@ -43,6 +48,7 @@ size_t syscall_write(int fd, void *buf, size_t count) {
   return count;
 }
 
+// starting malloc pointer
 uint64_t malloc_pointer = 0x80000000000;;
 
 uint64_t syscall_memmap(uintptr_t address, bool user, bool writable, bool executable, size_t length) {
@@ -65,21 +71,19 @@ void syscall_entry();
 
 uint64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
 
-  uint64_t temper;
-
   switch (num) {
     case 0:
-      syscall_write(arg0, arg1, arg2);
-      break;
+      return syscall_write(arg0, arg1, arg2);
     case 1:
-      syscall_read(arg0, arg1, arg2);
-      break;
+      return syscall_read(arg0, arg1, arg2);
     case 2:
       return syscall_memmap(arg0, arg1, arg2, arg3, arg4);
+    case 3:
       break;
     default:
       kprint_f("you've called a syscall that doesn't exist!!\n");
   }
+
   return num;
 }
 
