@@ -192,18 +192,17 @@ void _start(struct stivale2_struct* hdr) {
   unmap_lower_half();
   pic_setup();
   gdt_setup();
+  setup_syscall();
 
   // kprint_f("Hello\n");
 
   // kprint_f("the physical address of start: %p\n", translate_virtual_to_physcial(_start));
 
-  uint64_t init_start = locate_module(hdr, "init");
+  uint64_t shell_start = locate_module(hdr, "shell");
 
-  kprint_f("init_start: %x\n", init_start);
-  // enables syscalls?
-  setup_syscall();
+  kprint_f("shell_start: %x\n", shell_start);
 
-  exec(init_start);
+  exec(shell_start);
 
 	halt();
 }

@@ -7,7 +7,17 @@
 
 void _start() {
 
-  printf("hey i'm inside the terminal thing\n");
+  // while (1) {
+
+  //   printf("$");
+
+  //   // use a syscall to read user data
+
+  //   // 
+
+  // }
+
+  printf("hey i'm inside the shell thing\n");
 
   // Loop forever
   for(;;){}
