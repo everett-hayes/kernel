@@ -11,11 +11,10 @@ size_t syscall_read(int fd, void* buf, size_t count) {
     return -1;
   }
 
-  char* char_buf = (char*) buf; 
+  char* char_buf = (char*) buf;
 
   for (int i = 0; i < count; i++) {
     char val = kgetc(); // need to check if this is a backspace
-    kprint_f("the val inside the syscall was %c\n", val);
 
     // MAKE SURE WE DON"T BACKSPACE TOO MUCH !!!!! TODO
     if (val == '\b') {
@@ -23,9 +22,7 @@ size_t syscall_read(int fd, void* buf, size_t count) {
       char_buf -= 1; // move address backward 1 byte
       i -= 2; // don't count the backspace or the eaten char
     } else {
-      kprint_f("inside the non backspace one!\n");
       *char_buf = val;
-      kprint_f("*char_buf now looks like %c\n", *char_buf);
       char_buf += 1; // move address forward 1 byte
     } 
   }

@@ -26,6 +26,10 @@ size_t strlen(const char* str) {
     return count;
 }
 
+void print_c(char ch) {
+  write(1, &ch, 1);
+}
+
 // Print a string to the terminal
 void print_s(const char* str) {
 
@@ -101,7 +105,7 @@ void printf(const char* format, ...) {
 
             switch (*pos) {
                 case 'c':
-                    write(1, pos, 1);
+                    print_c(va_arg(ap, int));
                     break;
                 case 's':
                     print_s(va_arg(ap, const char*));

@@ -12,9 +12,9 @@ void _start() {
 
   // Loop forever
   while (true) {
-    char* buf = NULL; 
-    read(0, buf, 1);
-    printf("%c", *buf);
+    char ch;
+    read(0, &ch, 1);
+    printf("%c", ch);
   }
 
   // Loop forever
