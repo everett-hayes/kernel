@@ -73,7 +73,7 @@ int isAlpha(int key) {
 }
 
 int isSpecial(int key) {
-  return (key == 57 || key == 14);
+  return (key == 57 || key == 14 || key == 28 || key == 39);
 }
 
 __attribute__((interrupt))

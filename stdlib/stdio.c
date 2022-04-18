@@ -135,19 +135,29 @@ void printf(const char* format, ...) {
     }
 }
 
-size_t get_line(char* buf, size_t* len) {
 
-  while (*buf != '\n') {
-    read(0, buf, 1);
-    buf++; *len++;
+/*
+line: the line to be read into from stdin
+len: the amount of characters read from stdin
+*/
+size_t get_line(char* line, size_t* len) {
 
-    if (*buf == -1) {
-      return -1;
-    }
+  char ch;
+  read(0, ch, 1);
+
+  if (ch == '\0') {
+    return -1;
   }
 
-  *buf = '\0';
+  while (ch != '\n') {
+    *line = ch;
 
-  return *len;
+    line++;
+    *len++;
+  }
+
+  *line = '\0';
+
+  return *line;
 }
 
