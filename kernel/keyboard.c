@@ -3,6 +3,7 @@
 #include "keyboard.h"
 #include "port.h"
 #include "pic.h"
+#include "kprint.h"
 
 
 #define circ_buffer_len 10
@@ -77,6 +78,7 @@ int isSpecial(int key) {
 
 __attribute__((interrupt))
 void keypress_handler(interrupt_context_t* ctx) {
+
   uint8_t val = inb(0x60);
 
   if (val == 0x2A) {

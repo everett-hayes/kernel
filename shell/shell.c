@@ -7,17 +7,15 @@
 
 void _start() {
 
-  // while (1) {
+  char* line = NULL;
+  size_t* line_size = 0;
 
-  //   printf("$");
-
-  //   // use a syscall to read user data
-
-  //   // 
-
-  // }
-
-  printf("hey i'm inside the shell thing\n");
+  // Loop forever
+  while (true) {
+    char* buf = NULL; 
+    read(0, buf, 1);
+    printf("%c", *buf);
+  }
 
   // Loop forever
   for(;;){}

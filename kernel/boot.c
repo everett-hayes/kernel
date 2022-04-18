@@ -189,14 +189,19 @@ void _start(struct stivale2_struct* hdr) {
   idt_setup();
   initialize_memory(find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID), find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID));
   term_init();
-  unmap_lower_half();
+  // unmap_lower_half();
   pic_setup();
   gdt_setup();
   setup_syscall();
 
-  // kprint_f("Hello\n");
 
-  // kprint_f("the physical address of start: %p\n", translate_virtual_to_physcial(_start));
+  // while (true) {
+  //   kprint_f("%c", kgetc());
+  // }
+
+  kprint_f("Hello\n");
+
+  kprint_f("the physical address of start: %p\n", translate_virtual_to_physcial(_start));
 
   uint64_t shell_start = locate_module(hdr, "shell");
 

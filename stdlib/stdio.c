@@ -131,3 +131,19 @@ void printf(const char* format, ...) {
     }
 }
 
+size_t get_line(char* buf, size_t* len) {
+
+  while (*buf != '\n') {
+    read(0, buf, 1);
+    buf++; *len++;
+
+    if (*buf == -1) {
+      return -1;
+    }
+  }
+
+  *buf = '\0';
+
+  return *len;
+}
+
