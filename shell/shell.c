@@ -8,6 +8,7 @@
 void runShell();
 void parseLine(char* cmd);
 char* strtok_r(char* s, char* delims, char** save_ptr);
+int strcmp(const char* str1, const char* str2);
 
 void _start() {
 
@@ -60,9 +61,24 @@ void parseLine(char* cmd) {
     ptr = strtok_r(NULL, " \n\0", &saveptr);
   }
 
-  printf("first arg: %s\n", args[0]);
-  printf("second arg: %s\n", args[1]);
-  printf("third arg: %s\n", args[2]);
+  if (strcmp(args[0], "exec") == 0) {
+    printf("\nI am exec!!!!!!!!\n");
+  } else {
+    printf("\nI am not exec :(\n");
+  }
+}
+
+int strcmp(const char* str1, const char* str2) {
+    while(*str1) {
+        if (*str1 != *str2) {
+            break;
+        }
+
+        str1++;
+        str2++;
+    }
+
+    return *(const unsigned char*)str1 - *(const unsigned char*)str2;
 }
 
 // The strspn() function spans the initial part of the null-terminated string s as long as the
