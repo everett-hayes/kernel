@@ -145,13 +145,10 @@ size_t get_line(char* line, size_t* len) {
   char ch;
   read(0, ch, 1);
 
-  if (ch == '\0') {
-    return -1;
-  }
-
   while (ch != '\n') {
     *line = ch;
 
+    read(0, ch, 1);
     line++;
     *len++;
   }
