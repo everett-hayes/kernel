@@ -2,10 +2,13 @@
 
 struct stivale2_struct_tag_modules* tag = NULL;
 
+// used to locally acquire a pointer to the modules tag
+// called before anything can be executed
 void exec_setup(struct stivale2_struct_tag_modules* param_tag) {
     tag = param_tag;
 }
 
+// find a module with the specified name and returns its starting address
 uint64_t locate_module(char* module_name) {
 
   for (int i = 0; i < tag->module_count; i++) {
@@ -19,12 +22,13 @@ uint64_t locate_module(char* module_name) {
   return -1;
 }
 
+// executes the elf found at the given address
 void exec(uintptr_t elf_address) {
 
+  // unmap the lower half of memory for the user
   unmap_lower_half();
 
   elf64_hdr_t* header = (elf64_hdr_t*) elf_address;
-
   elf64_prg_hdr_t* prg_header = (elf64_prg_hdr_t*) (elf_address + header->e_phoff);
 
   int ph_size = header->e_phentsize;
@@ -37,7 +41,6 @@ void exec(uintptr_t elf_address) {
     elf64_prg_hdr_t* prg_header_curr = (elf64_prg_hdr_t*) (temp);
 
     if (prg_header_curr->p_type == 1 && prg_header_curr->p_memsz > 0) {
-      // kprint_f("trying to map at %p\n", prg_header_curr->p_vaddr);
       bool res = vm_map(root, prg_header_curr->p_vaddr, 1, 1, 1);
 
       if (!res) {
@@ -68,10 +71,8 @@ void exec(uintptr_t elf_address) {
         try >>= 1;
       }
 
-
       // copy contents of elf file to virtual address
-      // ask charlie about this line!
-      memcpy(prg_header_curr->p_vaddr, elf_address + prg_header_curr->p_offset, prg_header_curr->p_memsz);
+      memcpy((void*) prg_header_curr->p_vaddr, (void*) (elf_address + prg_header_curr->p_offset), prg_header_curr->p_memsz);
       vm_protect(root, prg_header_curr->p_vaddr, true, writable, executable);
     }
 
@@ -79,7 +80,6 @@ void exec(uintptr_t elf_address) {
     temp += ph_size;
   }
 
-  // now switch to usermode!!!
   // Pick an arbitrary location and size for the user-mode stack
   uintptr_t user_stack = 0x70000000000;
   size_t user_stack_size = 8 * 0x1000;
@@ -89,7 +89,7 @@ void exec(uintptr_t elf_address) {
     // Map a page that is user-accessible, writable, but not executable
     vm_map(get_top_table(), p, true, true, false);
   }
-  
+
   // And now jump to the entry point
   usermode_entry(USER_DATA_SELECTOR | 0x3,          // User data selector with priv=3
                 user_stack + user_stack_size - 8,   // Stack starts at the high address minus 8 bytes

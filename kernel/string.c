@@ -3,7 +3,7 @@
 size_t strlen(const char* str) {
     size_t count = 0;
 
-    while(*str != '\0') {
+    while (*str != '\0') {
         count++;
         str++;
     }
@@ -12,13 +12,14 @@ size_t strlen(const char* str) {
 }
 
 char* strcpy(char* dest, const char* src) {
+
     if (dest == NULL) {
         return NULL;
     }
 
     char* ptr = dest;
 
-    while(*src != '\0') {
+    while (*src != '\0') {
         *dest = *src;
         dest++;
         src++;
@@ -30,7 +31,9 @@ char* strcpy(char* dest, const char* src) {
 }
 
 int strcmp(const char* str1, const char* str2) {
-    while(*str1) {
+
+    while( *str1) {
+
         if (*str1 != *str2) {
             break;
         }
@@ -40,12 +43,4 @@ int strcmp(const char* str1, const char* str2) {
     }
 
     return *(const unsigned char*)str1 - *(const unsigned char*)str2;
-}
-
-char* strtok(char* str, const char* delim) {
-
-}
-
-char* strpbrk(const char* str1, const char* str2) {
-
 }

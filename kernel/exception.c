@@ -9,12 +9,14 @@
 // Make an IDT
 idt_entry_t idt[256];
 
+// handles all interrupts that don't have an error code
 __attribute__((interrupt))
 void interrupt_handler(interrupt_context_t* ctx) {
   kprint_f("generic interrupt handler\n");
   halt();
 }
 
+// handles all interrupts with an error code
 __attribute__((interrupt))
 void interrupt_handler_ec(interrupt_context_t* ctx, uint64_t ec) {
 

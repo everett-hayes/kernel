@@ -40,7 +40,7 @@ void print_s(const char* str) {
 
   int len = strlen(str);
 
-  write(1, str, len);
+  write(1, (void*) str, len);
 }
 
 // Return the number of digits of a value with respect to a base
@@ -133,33 +133,9 @@ void printf(const char* format, ...) {
                     break;
             }
         } else {
-            write(1, pos, 1);
+            write(1, (void*) pos, 1);
         }
 
         pos++;
     }
 }
-
-
-/*
-line: the line to be read into from stdin
-len: the amount of characters read from stdin
-*/
-size_t get_line(char* line, size_t* len) {
-
-  char ch;
-  read(0, ch, 1);
-
-  while (ch != '\n') {
-    *line = ch;
-
-    read(0, ch, 1);
-    line++;
-    *len++;
-  }
-
-  *line = '\0';
-
-  return *line;
-}
-

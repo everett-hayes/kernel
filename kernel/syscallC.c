@@ -94,13 +94,13 @@ uint64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t ar
 
   switch (num) {
     case 0:
-      return syscall_write(arg0, arg1, arg2);
+      return syscall_write(arg0, (void*) arg1, arg2);
     case 1:
-      return syscall_read(arg0, arg1, arg2);
+      return syscall_read(arg0, (void*) arg1, arg2);
     case 2:
       return syscall_memmap(arg0, arg1, arg2, arg3, arg4);
     case 3:
-      return syscall_exec(arg0);
+      return syscall_exec((char*) arg0);
     case 4:
       return syscall_exit();
     default:
