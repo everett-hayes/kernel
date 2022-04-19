@@ -80,6 +80,7 @@ void pic_setup() {
 
 void _start(struct stivale2_struct* hdr) {
 
+  // setup various parts of the kernel
   idt_setup();
   initialize_memory(find_tag(hdr, STIVALE2_STRUCT_TAG_MEMMAP_ID), find_tag(hdr, STIVALE2_STRUCT_TAG_HHDM_ID));
   term_init();
@@ -89,15 +90,8 @@ void _start(struct stivale2_struct* hdr) {
   syscall_setup();
   exec_setup(find_tag(hdr, STIVALE2_STRUCT_TAG_MODULES_ID));
 
-  // TODOOOOO:
-  /*
-  set exeception handlers for all the possible interrpt codes
-  backspacing too far doesn't do bad stuff
-  generally add comments
-  */
-
+  // start the shell up for the user
   uint64_t shell_start = locate_module("shell");
-
   exec(shell_start);
 
 	halt();
