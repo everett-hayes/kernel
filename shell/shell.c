@@ -4,6 +4,7 @@
 
 #include "stdio.h"
 #include "stdmem.h"
+#include "stdexec.h"
 
 void runShell();
 void parseLine(char* cmd);
@@ -62,7 +63,9 @@ void parseLine(char* cmd) {
   }
 
   if (strcmp(args[0], "exec") == 0) {
-    printf("\nI am exec!!!!!!!!\n");
+    printf("\nI am about to try exec from the shell!! on %s\n", args[1]);
+    int result = exec(args[1]);
+    printf("Finished exec with result %d\n", result);
   } else {
     printf("\nI am not exec :(\n");
   }

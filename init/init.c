@@ -7,24 +7,24 @@
 
 void _start() {
 
-  write(1, "Hello\n", 6);
+  // write(1, "Hello\n", 6);
 
-  printf("we dem bois\n");
+  printf("we dem bois from the init place\n");
 
-  printf("i am %d years old and my name is %s\n", 15, "johnny");
+  // printf("i am %d years old and my name is %s\n", 15, "johnny");
 
-  typedef struct node {
-    int num;
-  } node_t;
+  // typedef struct node {
+  //   int num;
+  // } node_t;
 
-  node_t* pointer = (node_t*) malloc(sizeof(node_t));
+  // node_t* pointer = (node_t*) malloc(sizeof(node_t));
 
-  printf("%p\n", pointer);
+  // printf("%p\n", pointer);
 
-  pointer->num = 4;
+  // pointer->num = 4;
 
-  printf("%d\n", pointer->num);
+  // printf("%d\n", pointer->num);
 
-  // Loop forever
-  for(;;){}
+  // // Loop forever
+  // for(;;){}
 }

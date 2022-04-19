@@ -10,6 +10,7 @@
     "istream": "c",
     "ostream": "c",
     "type_traits": "c",
-    "__config": "c"
+    "__config": "c",
+    "functional": "c"
   }
 }

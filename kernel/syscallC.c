@@ -65,6 +65,17 @@ uint64_t syscall_memmap(uintptr_t address, bool user, bool writable, bool execut
   return 0x0;
 }
 
+uint64_t syscall_exec(char* module_name) {
+
+  int elf_address = locate_module(module_name);
+
+  if (elf_address == -1) return 1;
+
+  exec(elf_address);
+
+  return 0;
+}
+
 // No more arguments than 6!
 uint64_t syscall(uint64_t num, ...);
 void syscall_entry();
@@ -79,6 +90,7 @@ uint64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t ar
     case 2:
       return syscall_memmap(arg0, arg1, arg2, arg3, arg4);
     case 3:
+      return syscall_exec(arg0);
       break;
     default:
       kprint_f("you've called a syscall that doesn't exist!!\n");

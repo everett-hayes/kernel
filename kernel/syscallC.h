@@ -4,6 +4,7 @@
 #include "kprint.h"
 #include "keyboard.h"
 #include "exception.h"
+#include "exec.h"
 
 #include "stddef.h"
 #include "stdint.h"
