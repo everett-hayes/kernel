@@ -19,7 +19,6 @@ uint64_t locate_module(char* module_name) {
   return -1;
 }
 
-// TODO MAKE ME CLEAR THE LOWER
 void exec(uintptr_t elf_address) {
 
   unmap_lower_half();

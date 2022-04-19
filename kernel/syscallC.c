@@ -67,7 +67,7 @@ uint64_t syscall_memmap(uintptr_t address, bool user, bool writable, bool execut
 
 uint64_t syscall_exec(char* module_name) {
 
-  int elf_address = locate_module(module_name);
+  uint64_t elf_address = locate_module(module_name);
 
   if (elf_address == -1) return 1;
 
