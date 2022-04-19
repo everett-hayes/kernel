@@ -37,7 +37,7 @@ void exec(uintptr_t elf_address) {
     elf64_prg_hdr_t* prg_header_curr = (elf64_prg_hdr_t*) (temp);
 
     if (prg_header_curr->p_type == 1 && prg_header_curr->p_memsz > 0) {
-      kprint_f("trying to map at %p\n", prg_header_curr->p_vaddr);
+      // kprint_f("trying to map at %p\n", prg_header_curr->p_vaddr);
       bool res = vm_map(root, prg_header_curr->p_vaddr, 1, 1, 1);
 
       if (!res) {

@@ -101,8 +101,6 @@ void _start(struct stivale2_struct* hdr) {
 
   uint64_t shell_start = locate_module("shell");
 
-  kprint_f("shell_start: %x\n", shell_start);
-
   exec(shell_start);
 
 	halt();

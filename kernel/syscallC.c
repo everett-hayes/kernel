@@ -76,6 +76,16 @@ uint64_t syscall_exec(char* module_name) {
   return 0;
 }
 
+uint64_t syscall_exit() {
+
+  kprint_f("exit was called!!!!\n");
+
+  uint64_t shell_elf = locate_module("shell");
+  exec(shell_elf);
+
+  return 0;
+}
+
 // No more arguments than 6!
 uint64_t syscall(uint64_t num, ...);
 void syscall_entry();
@@ -91,7 +101,8 @@ uint64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t ar
       return syscall_memmap(arg0, arg1, arg2, arg3, arg4);
     case 3:
       return syscall_exec(arg0);
-      break;
+    case 4:
+      return syscall_exit();
     default:
       kprint_f("you've called a syscall that doesn't exist!!\n");
   }

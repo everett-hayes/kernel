@@ -13,11 +13,7 @@ char* strtok_r(char* s, char* delims, char** save_ptr);
 int strcmp(const char* str1, const char* str2);
 
 void _start() {
-
   runShell();
-
-  // Loop forever
-  for(;;){}
 }
 
 void runShell() {
@@ -64,11 +60,9 @@ void parseLine(char* cmd) {
   }
 
   if (strcmp(args[0], "exec") == 0) {
-    printf("\nI am about to try exec from the shell!! on %s\n", args[1]);
     int result = exec(args[1]);
-    printf("Finished exec with result %d\n", result);
   } else {
-    printf("\nI am not exec :(\n");
+    printf("\nunrecognized command: %s\n", args[0]);
   }
 }
 

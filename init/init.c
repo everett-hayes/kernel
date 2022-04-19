@@ -11,6 +11,10 @@ void _start() {
 
   printf("we dem bois from the init place\n");
 
+  return;
+
+  //syscall(4);
+
   // printf("i am %d years old and my name is %s\n", 15, "johnny");
 
   // typedef struct node {
