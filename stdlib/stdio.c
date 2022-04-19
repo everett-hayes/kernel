@@ -2,8 +2,13 @@
 
 #define SYS_WRITE 0
 #define SYS_READ 1
+#define SYS_EXIT 4
 
 uint64_t syscall(uint64_t num, ...);
+
+uint64_t exit() {
+  return syscall(SYS_EXIT, 0);
+}
 
 // read (a wrapper around the syscall invocation
 size_t read(int fd, void* buf, size_t count) {

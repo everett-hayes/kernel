@@ -60,6 +60,7 @@ void parseLine(char* cmd) {
   }
 
   if (strcmp(args[0], "exec") == 0) {
+    printf("\n");
     int result = exec(args[1]);
   } else {
     printf("\nunrecognized command: %s\n", args[0]);

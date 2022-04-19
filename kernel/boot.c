@@ -86,16 +86,13 @@ void _start(struct stivale2_struct* hdr) {
   unmap_lower_half();
   pic_setup();
   gdt_setup();
-  setup_syscall();
+  syscall_setup();
   exec_setup(find_tag(hdr, STIVALE2_STRUCT_TAG_MODULES_ID));
 
   // TODOOOOO:
   /*
-  get exec syscll working
   set exeception handlers for all the possible interrpt codes
-  move string stuff into a stdlib in stdstring.h
   backspacing too far doesn't do bad stuff
-  rename setup_syscall() to syscall_setup()
   generally add comments
   */
 

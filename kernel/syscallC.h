@@ -10,4 +10,4 @@
 #include "stdint.h"
 #include "stdbool.h"
 
-void setup_syscall();
+void syscall_setup();

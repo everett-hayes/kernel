@@ -89,9 +89,7 @@ void exec(uintptr_t elf_address) {
     // Map a page that is user-accessible, writable, but not executable
     vm_map(get_top_table(), p, true, true, false);
   }
-
-  kprint_f("about to jump!\n");
-
+  
   // And now jump to the entry point
   usermode_entry(USER_DATA_SELECTOR | 0x3,          // User data selector with priv=3
                 user_stack + user_stack_size - 8,   // Stack starts at the high address minus 8 bytes

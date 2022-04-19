@@ -7,28 +7,19 @@
 
 void _start() {
 
-  // write(1, "Hello\n", 6);
+  printf("I am inside the init program :) which has been called from the shell\n");
 
-  printf("we dem bois from the init place\n");
+  typedef struct node {
+    int num;
+  } node_t;
 
-  return;
+  node_t* pointer = (node_t*) malloc(sizeof(node_t));
 
-  //syscall(4);
+  printf("sample malloc result %p\n", pointer);
 
-  // printf("i am %d years old and my name is %s\n", 15, "johnny");
+  pointer->num = 4;
 
-  // typedef struct node {
-  //   int num;
-  // } node_t;
+  printf("result of writing to the malloc'ed pointer %d\n", pointer->num);
 
-  // node_t* pointer = (node_t*) malloc(sizeof(node_t));
-
-  // printf("%p\n", pointer);
-
-  // pointer->num = 4;
-
-  // printf("%d\n", pointer->num);
-
-  // // Loop forever
-  // for(;;){}
+  exit();
 }

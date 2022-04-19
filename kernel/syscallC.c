@@ -4,6 +4,7 @@
 #define SYS_READ 1
 #define SYS_MMAP 2
 #define SYS_EXEC 3
+#define SYS_EXIT 4
 
 size_t syscall_read(int fd, void* buf, size_t count) {
 
@@ -69,7 +70,10 @@ uint64_t syscall_exec(char* module_name) {
 
   uint64_t elf_address = locate_module(module_name);
 
-  if (elf_address == -1) return 1;
+  if (elf_address == -1) {
+    kprint_f("the specified program was not found\n");
+    return 1;
+  }
 
   exec(elf_address);
 
@@ -77,12 +81,8 @@ uint64_t syscall_exec(char* module_name) {
 }
 
 uint64_t syscall_exit() {
-
-  kprint_f("exit was called!!!!\n");
-
   uint64_t shell_elf = locate_module("shell");
   exec(shell_elf);
-
   return 0;
 }
 
@@ -110,6 +110,6 @@ uint64_t syscall_handler(uint64_t num, uint64_t arg0, uint64_t arg1, uint64_t ar
   return num;
 }
 
-void setup_syscall() {
+void syscall_setup() {
     idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
 }

@@ -11,13 +11,82 @@ idt_entry_t idt[256];
 
 __attribute__((interrupt))
 void interrupt_handler(interrupt_context_t* ctx) {
-  kprint_f("example interrupt handler\n");
+  kprint_f("generic interrupt handler\n");
   halt();
 }
 
 __attribute__((interrupt))
 void interrupt_handler_ec(interrupt_context_t* ctx, uint64_t ec) {
-  kprint_f("example interrupt handler (ec=%d)\n", ec);
+
+  switch (ec) {
+    case 0:
+      kprint_f("Division Error (ec=%d)\n", ec);
+      break;
+    case 1:
+      kprint_f("Debug Interrupt (ec=%d)\n", ec);
+      break;  
+    case 2:
+      kprint_f("NMI Interrupt (ec=%d)\n", ec);
+      break;
+    case 3:
+      kprint_f("Breakpoint Interrupt (ec=%d)\n", ec);
+      break;
+    case 4:
+      kprint_f("Overflow Interrupt (ec=%d)\n", ec);
+      break;
+    case 5:
+      kprint_f("Bound Range Exceeded Interrupt (ec=%d)\n", ec);
+      break;
+    case 6:
+      kprint_f("Invalid Opcode Interrupt (ec=%d)\n", ec);
+      break;
+    case 7:
+      kprint_f("Device Not Available (No Math Coprocessor) Interrupt (ec=%d)\n", ec);
+      break;
+    case 8:
+      kprint_f("Double Fault Interrupt (ec=%d)\n", ec);
+      break;
+    case 9:
+      kprint_f("CoProcessor Segment Overrun Interrupt (ec=%d)\n", ec);
+      break;
+    case 10:
+      kprint_f("Invalid TSS Interrupt (ec=%d)\n", ec);
+      break;
+    case 11:
+      kprint_f("Segment Not Present Interrupt (ec=%d)\n", ec);
+      break;
+    case 12:
+      kprint_f("Stack Segment Fault Interrupt (ec=%d)\n", ec);
+      break;
+    case 13:
+      kprint_f("General Protection Interrupt (ec=%d)\n", ec);
+      break;
+    case 14:
+      kprint_f("Page Fault Interrupt (ec=%d)\n", ec);
+      break;
+    case 16:
+      kprint_f("Floating-Point Error Interrupt (ec=%d)\n", ec);
+      break;
+    case 17:
+      kprint_f("Alignment Check Interrupt (ec=%d)\n", ec);
+      break;
+    case 18:
+      kprint_f("Machine Check Interrupt (ec=%d)\n", ec);
+      break;
+    case 19:
+      kprint_f("SIMD Floating-Point Exception Interrupt (ec=%d)\n", ec);
+      break;
+    case 20:
+      kprint_f("Virtualization Exception Interrupt (ec=%d)\n", ec);
+      break;
+    case 21:
+      kprint_f("Control Protection Exception Interrupt (ec=%d)\n", ec);
+      break;
+    default:
+      kprint_f("Unknown Interrupt (ec=%d)\n", ec);
+      break;
+  }
+  
   halt();
 }
 
