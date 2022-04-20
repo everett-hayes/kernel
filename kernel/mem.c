@@ -230,7 +230,7 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
       }
 
       // Set the table to all 0s
-      memset(newly_created_table + hhdm_base, 0, 4096);
+      memset((void*) newly_created_table + hhdm_base, 0, 4096);
 
       // Make our current pt_entry_t point to this newly created table
       curr_entry->address = newly_created_table >> 12;
