@@ -130,7 +130,7 @@ uintptr_t pmem_alloc() {
  */
 void pmem_free(uintptr_t p) {
 
-  if (p == NULL) {
+  if ((void*) p == NULL) {
     return;
   }
 
@@ -198,7 +198,6 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
 
   pt_entry_t* table = root + hhdm_base;
 
-  uint64_t offset = address & 0xFFF;
   uint16_t indices[] = {
     (address >> 12) & 0x1FF,
     (address >> 21) & 0x1FF,
@@ -262,7 +261,6 @@ bool vm_unmap(uintptr_t root, uintptr_t address) {
 
   pt_entry_t* table = (pt_entry_t*) (root + hhdm_base);
 
-  uint64_t offset = address & 0xFFF;
   uint16_t indices[] = {
     (address >> 12) & 0x1FF,
     (address >> 21) & 0x1FF,
@@ -310,7 +308,6 @@ bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, boo
 
   pt_entry_t* table = root + hhdm_base;
 
-  uint64_t offset = address & 0xFFF;
   uint16_t indices[] = {
     (address >> 12) & 0x1FF,
     (address >> 21) & 0x1FF,
@@ -351,7 +348,7 @@ void unmap_lower_half() {
   uintptr_t root = get_top_table();
 
   // We can reclaim memory used to hold page tables, but NOT the mapped pages
-  pt_entry_t* l4_table = ptov(root);
+  pt_entry_t* l4_table = (pt_entry_t*) ptov((void*) root);
 
   for (size_t l4_index = 0; l4_index < 256; l4_index++) {
 
@@ -364,7 +361,7 @@ void unmap_lower_half() {
       l4_table[l4_index].present = false;
 
       // Now loop over the level 3 table
-      pt_entry_t* l3_table = ptov(l4_table[l4_index].address << 12);
+      pt_entry_t* l3_table = (pt_entry_t*) ptov((void*) (l4_table[l4_index].address << 12));
       for (size_t l3_index = 0; l3_index < 512; l3_index++) {
 
 
@@ -372,7 +369,7 @@ void unmap_lower_half() {
         if (l3_table[l3_index].present && !l3_table[l3_index].page_size) {
 
           // Yes. Loop over the level 2 table
-          pt_entry_t* l2_table = ptov(l3_table[l3_index].address << 12);
+          pt_entry_t* l2_table = (pt_entry_t*) ptov((void*) (l3_table[l3_index].address << 12));
           for (size_t l2_index = 0; l2_index < 512; l2_index++) {
 
             // Does this entry point to a level 1 table?

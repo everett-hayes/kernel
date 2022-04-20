@@ -9,8 +9,6 @@
 
 void runShell();
 void parseLine(char* cmd);
-char* strtok_r(char* s, char* delims, char** save_ptr);
-int strcmp(const char* str1, const char* str2);
 
 void _start() {
   runShell();
