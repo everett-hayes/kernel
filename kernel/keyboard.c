@@ -8,6 +8,7 @@
 
 #define circ_buffer_len 10
 
+// citation: https://gist.github.com/davazp/d2fde634503b2a5bc664
 char kbd_US [128] =
 {
     0,  27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',   
@@ -108,11 +109,13 @@ void keypress_handler(interrupt_context_t* ctx) {
  */
 char kgetc() {
 
+  // spin until there is something to read
   while (buffer_count == 0) {}
 
   int key = read();
   char ch = kbd_US[key];
 
+  // check whether to upper case the letter
   if ((leftShiftIsPressed || rightShiftIsPressed) && isAlpha(key)) {
     ch -= 32;
   }

@@ -6,6 +6,7 @@
 #define SYS_EXEC 3
 #define SYS_EXIT 4
 
+// syscall 0: reads from keyboard input to buf
 size_t syscall_read(int fd, void* buf, size_t count) {
 
   if (fd != 0) {
@@ -17,7 +18,7 @@ size_t syscall_read(int fd, void* buf, size_t count) {
   for (int i = 0; i < count; i++) {
     char val = kgetc(); // need to check if this is a backspace
 
-    // MAKE SURE WE DON"T BACKSPACE TOO MUCH !!!!! TODO
+    // MAKE SURE WE DON"T BACKSPACE TOO MUCH !!!!!
     if (val == '\b') {
       *char_buf = '\0';
       char_buf -= 1; // move address backward 1 byte
@@ -31,6 +32,7 @@ size_t syscall_read(int fd, void* buf, size_t count) {
   return count;
 }
 
+// syscall 1: reads from buf and prints to stdoutput
 size_t syscall_write(int fd, void *buf, size_t count) {
 
   if (fd != 1 && fd != 2) {
@@ -52,6 +54,7 @@ size_t syscall_write(int fd, void *buf, size_t count) {
 // starting malloc pointer
 uint64_t malloc_pointer = 0x80000000000;;
 
+// syscall 2: returns a malloc'ed pointer
 uint64_t syscall_memmap(uintptr_t address, bool user, bool writable, bool executable, size_t length) {
 
   bool res = vm_map(get_top_table(), malloc_pointer, user, writable, executable);
@@ -66,6 +69,7 @@ uint64_t syscall_memmap(uintptr_t address, bool user, bool writable, bool execut
   return 0x0;
 }
 
+// syscall 3: executes the module with the specified name
 uint64_t syscall_exec(char* module_name) {
 
   uint64_t elf_address = locate_module(module_name);
@@ -80,6 +84,7 @@ uint64_t syscall_exec(char* module_name) {
   return 0;
 }
 
+// syscall 4: jumps back the shell, this be broken unfortunately :(
 uint64_t syscall_exit() {
   uint64_t shell_elf = locate_module("shell");
   exec(shell_elf);

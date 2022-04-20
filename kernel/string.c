@@ -1,5 +1,6 @@
 #include <stddef.h>
 
+// get length of null terminated string
 size_t strlen(const char* str) {
     size_t count = 0;
 
@@ -11,6 +12,7 @@ size_t strlen(const char* str) {
     return count;
 }
 
+// copy a null terminated string from src to dest
 char* strcpy(char* dest, const char* src) {
 
     if (dest == NULL) {
@@ -30,6 +32,7 @@ char* strcpy(char* dest, const char* src) {
     return ptr;
 }
 
+// compare str1 and str2, returns 0 on a match
 int strcmp(const char* str1, const char* str2) {
 
     while( *str1) {
